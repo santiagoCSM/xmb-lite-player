@@ -29,10 +29,21 @@ internal class XmbMenuView(
     private val onEffect: (WaveBackgroundView.Effect) -> Unit,
     private val onMotion: (WaveBackgroundView.Motion) -> Unit
 ) : View(context) {
-    private enum class Category(val title: String, val symbol: String, vararg val items: String) {
-        MUSIC("Música", "♫", "Canciones", "Álbumes", "Artistas", "En reproducción"),
-        VIDEO("Video", "▶", "Videos locales", "Carpetas"),
-        SETTINGS("Ajustes", "⚙", "Apariencia", "Información")
+    private enum class Category(val title: String, val icon: XmbIcon, vararg val items: String) {
+        MUSIC("Música", XmbIcon.MUSIC, "Canciones", "Álbumes", "Artistas", "En reproducción"),
+        VIDEO("Video", XmbIcon.VIDEO, "Videos locales", "Carpetas"),
+        SETTINGS("Ajustes", XmbIcon.SETTINGS, "Apariencia", "Información");
+
+        fun rowIcon(index: Int): XmbIcon = when (this) {
+            MUSIC -> when (index) {
+                0 -> XmbIcon.SONGS
+                1 -> XmbIcon.ALBUMS
+                2 -> XmbIcon.ARTISTS
+                else -> XmbIcon.NOW_PLAYING
+            }
+            VIDEO -> if (index == 0) XmbIcon.LOCAL_VIDEOS else XmbIcon.FOLDERS
+            SETTINGS -> if (index == 0) XmbIcon.APPEARANCE else XmbIcon.INFORMATION
+        }
     }
 
     private val appearanceItems = arrayOf("Fondo animado", "Rendimiento")
@@ -59,6 +70,7 @@ internal class XmbMenuView(
     private val density = resources.displayMetrics.density
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+    private val icons = XmbIcons(context)
     private data class FittedText(val width: Float, val size: Float, val bold: Boolean, val text: CharSequence)
     private val fittedLabels = LruCache<String, FittedText>(64)
     private val white = Color.rgb(239, 248, 250)
@@ -86,6 +98,9 @@ internal class XmbMenuView(
         else -> height * 0.30f
     }
     private val progressY get() = height * 0.445f
+    private val timeY get() = height * 0.505f
+    private val seekIconY get() = timeY - 4f * density
+    private val seekIconInset get() = 7f * density
     private val listBottom get() = height - 18f * density
     private val titleX get() = 20f * density
     private val headerY get() = min(33f * density, height * 0.12f)
@@ -417,7 +432,9 @@ internal class XmbMenuView(
             text(canvas, "XMB / LITE", titleX, headerY, 13f, accent, true)
             drawCategories(canvas, categoryPosition(progress))
         } else {
-            text(canvas, "‹ Atrás", titleX, headerY, 13f, accent, true)
+            icons.draw(canvas, XmbIcon.BACK, titleX + 6f * density, headerY - 4.5f * density,
+                14f * density, 235)
+            text(canvas, "Atrás", titleX + 16f * density, headerY, 13f, accent, true)
             text(canvas, title(), anchorX, height * .28f, 22f, white, true, maxWidth = width - anchorX - 12f * density)
         }
 
@@ -480,21 +497,60 @@ internal class XmbMenuView(
         canvas.drawRect(anchorX, progressY, rowRight, progressY + stroke, paint)
         paint.color = accent
         canvas.drawRect(anchorX, progressY, anchorX + width * fraction, progressY + stroke, paint)
-        text(canvas, positionLabel, anchorX, height * 0.505f, 11f, muted)
-        text(canvas, durationLabel, rowRight, height * 0.505f, 11f, muted, align = Paint.Align.RIGHT)
+        val seekAlpha = if (playback.canSeek && playback.duration > 0) 220 else 114
+        icons.draw(canvas, XmbIcon.REWIND, anchorX + seekIconInset, seekIconY, 15f * density, seekAlpha)
+        icons.draw(canvas, XmbIcon.FAST_FORWARD, rowRight - seekIconInset, seekIconY, 15f * density, seekAlpha)
+        text(canvas, positionLabel, anchorX + 18f * density, timeY, 11f, muted)
+        text(canvas, durationLabel, rowRight - 18f * density, timeY, 11f, muted, align = Paint.Align.RIGHT)
     }
 
     private fun drawCategories(canvas: Canvas, position: Float) {
         for (entry in Category.entries) {
             val x = anchorX + (entry.ordinal - position) * categoryStep
-            val distance = abs(entry.ordinal - position).coerceAtMost(1f)
+            val focus = 1f - abs(entry.ordinal - position).coerceAtMost(1f)
+            paint.color = 0xff11213b.toInt()
+            paint.alpha = (90 + 36 * focus).toInt()
+            canvas.drawCircle(x, categoryY, (18f + 5f * focus) * density, paint)
+            if (focus > 0f) {
+                paint.color = accent
+                paint.alpha = (52 * focus).toInt()
+                canvas.drawCircle(x, categoryY, 23.5f * density, paint)
+            }
+            icons.draw(canvas, entry.icon, x, categoryY, (24f + 8f * focus) * density,
+                (204 + 51 * focus).toInt())
             val selected = entry.ordinal == category
-            paint.color = if (selected) 0x50418D9E else 0x30256375
-            canvas.drawCircle(x, categoryY, (23f - 5f * distance) * density, paint)
-            text(canvas, entry.symbol, x, categoryY + 8f * density,
-                23f - 4f * distance, if (selected) white else muted, align = Paint.Align.CENTER)
             text(canvas, entry.title, x, categoryY + 38f * density, 11f,
                 if (selected) white else muted, selected, Paint.Align.CENTER)
+        }
+    }
+
+    private fun rowIcon(index: Int): XmbIcon {
+        if (isLibraryPage()) {
+            return when (libraryState) {
+                LibraryState.PERMISSION -> XmbIcon.ACCESS
+                LibraryState.ERROR -> XmbIcon.RETRY
+                else -> when (page) {
+                    Page.ALBUMS -> if (groups(page).isEmpty()) XmbIcon.RETRY else XmbIcon.ALBUMS
+                    Page.ARTISTS -> if (groups(page).isEmpty()) XmbIcon.RETRY else XmbIcon.ARTISTS
+                    else -> if (songs().isEmpty()) XmbIcon.RETRY else XmbIcon.SONGS
+                }
+            }
+        }
+        return when (page) {
+            Page.ROOT -> Category.entries[category].rowIcon(index)
+            Page.APPEARANCE -> if (index == 0) XmbIcon.BACKGROUND else XmbIcon.PERFORMANCE
+            Page.EFFECTS -> XmbIcon.BACKGROUND
+            Page.MOTION -> XmbIcon.PERFORMANCE
+            Page.PLAYER -> when (index) {
+                0 -> XmbIcon.PREVIOUS
+                2 -> XmbIcon.NEXT
+                else -> when {
+                    playback.connectionFailed -> XmbIcon.RETRY
+                    playback.wantsToPlay -> XmbIcon.PAUSE
+                    else -> XmbIcon.PLAY
+                }
+            }
+            else -> error("There are no rows on $page")
         }
     }
 
@@ -509,22 +565,24 @@ internal class XmbMenuView(
         for (index in first..last) {
             val y = origin + (index - position) * rowStep
             val selected = index == selectedRow
-            if (selected) {
+            val focus = 1f - abs(index - position).coerceAtMost(1f)
+            val enabled = page != Page.PLAYER || transportEnabled(index)
+            if (focus > 0f) {
                 paint.color = highlight
+                paint.alpha = (64 * focus).toInt()
                 canvas.drawRoundRect(rowLeft, y - rowStep * .40f, rowRight, y + rowStep * .40f,
                     10f * density, 10f * density, paint)
-                paint.color = accent
-                canvas.drawCircle(anchorX - 10f * density, y, 3f * density, paint)
             }
             val applied = (page == Page.EFFECTS && index == effectIndex) ||
                 (page == Page.MOTION && index == motionIndex)
-            val enabled = page != Page.PLAYER || transportEnabled(index)
-            text(canvas, rowLabel(index), anchorX, y + 5f * density, if (selected) 17f else 14f,
-                if (selected && enabled) white else muted, selected,
-                maxWidth = rowRight - anchorX - (if (applied) 30f else 8f) * density)
+            val iconAlpha = if (enabled) (202 + 53 * focus).toInt() else (112 + 20 * focus).toInt()
+            icons.draw(canvas, rowIcon(index), anchorX - 13f * density, y,
+                (17f + 4f * focus) * density, iconAlpha)
+            text(canvas, rowLabel(index), anchorX + 2f * density, y + 5f * density,
+                if (selected) 17f else 14f, if (selected && enabled) white else muted, selected,
+                maxWidth = rowRight - anchorX - (if (applied) 32f else 10f) * density)
             if (applied) {
-                text(canvas, "✓", rowRight - 12f * density, y + 5f * density,
-                    15f, accent, true, Paint.Align.RIGHT)
+                icons.draw(canvas, XmbIcon.APPLIED, rowRight - 12f * density, y, 15f * density, 235)
             }
         }
         canvas.restore()
@@ -593,6 +651,16 @@ internal class XmbMenuView(
             val index = ((x - anchorX) / categoryStep + categoryPosition(progress)).roundToInt()
             if (index in Category.entries.indices) selectCategory(index)
             return
+        }
+        if (page == Page.PLAYER && y >= (progressY + seekIconY) * .5f && y < listTop) {
+            if (abs(x - (anchorX + seekIconInset)) <= 13f * density) {
+                seekRelative(-5000)
+                return
+            }
+            if (abs(x - (rowRight - seekIconInset)) <= 13f * density) {
+                seekRelative(5000)
+                return
+            }
         }
         if (page == Page.PLAYER && playback.canSeek && playback.duration > 0 &&
             x in anchorX..rowRight && abs(y - progressY) <= min(16f * density, height * 0.06f)

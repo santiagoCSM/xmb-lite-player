@@ -12,7 +12,11 @@ En **Ajustes → Apariencia → Rendimiento** puedes elegir entre **Fluido**, **
 
 | Ondas azules | Onda violeta |
 | --- | --- |
-| <img src="docs/capturas/ondas-azules.png" alt="Menú XMB con el fondo Ondas azules" width="240"> | <img src="docs/capturas/onda-violeta.png" alt="Menú XMB con el fondo Onda violeta" width="240"> |
+| <img src="docs/capturas/iconos-musica-azul.webp" alt="Menú XMB con el fondo Ondas azules" width="240"> | <img src="docs/capturas/iconos-musica-violeta.webp" alt="Menú XMB con el fondo Onda violeta" width="240"> |
+
+## Iconografía
+
+El menú usa iconos vectoriales originales y un foco inspirado en la jerarquía visual de XMB. La documentación explica las referencias, la integración Android, las capturas y la licencia MIT de los iconos. [Diseño y licencia de la iconografía](docs/ICONOGRAPHY.md)
 
 ## Plataforma objetivo
 
