@@ -2,7 +2,7 @@
 
 Reproductor multimedia nativo ultraligero para Android, con un diseño original inspirado en la navegación horizontal y vertical XMB.
 
-**Estado: prototipo 0.1.0.** El menú Música / Video / Ajustes funciona con gestos y controles direccionales, pero **todavía no reproduce archivos multimedia**.
+**Estado: primera etapa musical.** Reproduce música local y conserva el menú Música / Video / Ajustes con gestos y controles direccionales. La sección Video sigue en fase de prototipo.
 
 ## Fondos animados
 
@@ -18,8 +18,8 @@ En **Ajustes → Apariencia → Rendimiento** puedes elegir entre **Fluido**, **
 
 - Android 16, API 36. Pruebas de renderizado en Redmi 9T ARM64 con crDroid.
 - Kotlin + Android View y Canvas: sin Compose, AppCompat ni motor gráfico externo.
-- Sin anuncios, telemetría, red ni permisos de almacenamiento en el prototipo.
-- En una prueba corta en el Redmi 9T, los fondos alcanzaron 60 FPS en Fluido y unos 30 FPS en Ahorro. En Estático se detuvo el renderizado continuo. El APK de depuración ocupa menos de 1 MB.
+- Sin anuncios, telemetría ni permiso de Internet. La biblioteca solicita acceso al audio local.
+- En una prueba corta en el Redmi 9T, los fondos alcanzaron 60 FPS en Fluido y unos 30 FPS en Ahorro. En Estático se detuvo el renderizado continuo. El APK de depuración del prototipo visual ocupaba menos de 1 MB. La etapa musical con Media3 ocupa aproximadamente 5.1 MiB.
 
 ## Compilar en Linux Mint sin Android Studio
 
@@ -46,6 +46,12 @@ El plugin Android es AGP 8.13.2, con Kotlin 2.2.20. La primera compilación nece
 - Toca una categoría o una fila para seleccionarla. Toca la fila seleccionada para abrirla.
 - Usa **Atrás**, **Escape** o **B** del mando para regresar al nivel anterior y recuperar su selección.
 
+## Música local
+
+En **Música**, abre **Canciones**, **Álbumes** o **Artistas** y concede acceso cuando el menú lo solicite. Al abrir una canción, la cola usa el orden de la lista que estabas explorando. **En reproducción** muestra la duración y permite pausar, cambiar de pista y saltar a otro punto al tocar la barra o usar izquierda y derecha en el D-pad.
+
+La biblioteca consulta MediaStore fuera del hilo de interfaz. Media3 mantiene la sesión de audio y publica los controles multimedia del sistema. Desde el reproductor puedes reintentar un archivo inaccesible o pasar a otra pista.
+
 ## Estructura
 
 - `app/src/main/java/com/santiagocsm/xmblite/XmbMenuView.kt`: menú XMB en Canvas.
@@ -54,11 +60,10 @@ El plugin Android es AGP 8.13.2, con Kotlin 2.2.20. La primera compilación nece
 - `scripts/gradle.sh`: arranque de Gradle desde terminal.
 - `.github/workflows/android.yml`: compilación de APK de depuración y artefacto en Actions.
 
-## Siguientes hitos
+## Validación de la etapa musical
 
-1. Medir el arranque y el consumo de batería en pruebas prolongadas.
-2. Descubrir música local con MediaStore y permisos apropiados.
-3. Incorporar reproducción en segundo plano, controles multimedia y Media3.
-4. Agregar reproducción de video y optimizaciones basadas en mediciones.
+- Se compiló el APK de depuración y se instaló mediante ADB en un Redmi 9T con Android 16 (API 36) y ARM64.
+- Gradle ejecutó la tarea de pruebas unitarias, que quedó sin fuentes de prueba. Lint señaló `GestureBackNavigation` en el manejo del botón Atrás.
+- Quedan pendientes las pruebas de reproducción y controles con la pantalla bloqueada, archivos incompatibles y consumo sostenido en el dispositivo.
 
 Este prototipo no utiliza iconos, sonidos ni otros recursos propietarios de Sony.
