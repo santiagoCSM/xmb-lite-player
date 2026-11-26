@@ -4,6 +4,14 @@ Reproductor multimedia nativo ultraligero para Android, con un diseño original 
 
 **Estado: prototipo 0.1.0.** El menú Música / Video / Ajustes funciona con gestos y controles direccionales, pero **todavía no reproduce archivos multimedia**.
 
+## Fondos animados
+
+Elige el fondo en **Ajustes → Apariencia → Fondo animado**. Capturas tomadas en un Redmi 9T.
+
+| Ondas azules | Onda violeta |
+| --- | --- |
+| <img src="docs/capturas/ondas-azules.png" alt="Menú XMB con el fondo Ondas azules" width="240"> | <img src="docs/capturas/onda-violeta.png" alt="Menú XMB con el fondo Onda violeta" width="240"> |
+
 ## Plataforma objetivo
 
 - Android 16, API 36; pruebas previstas en Redmi 9T ARM64 con crDroid.
@@ -33,7 +41,7 @@ El plugin Android es AGP 8.13.2, con Kotlin 2.2.20. La primera compilación nece
 - Deslizar **izquierda/derecha**: cambiar categoría.
 - Deslizar **arriba/abajo**: recorrer las opciones.
 - Compatible también con las teclas D-pad.
-- Las opciones son demostrativas en esta versión.
+- Tocar **Apariencia** o pulsar **Enter** con esa opción seleccionada abre el selector de fondos.
 
 ## Estructura
 

@@ -1,24 +1,24 @@
 package com.santiagocsm.xmblite
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.os.Bundle
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.LinearGradient
-import android.graphics.Shader
-import android.graphics.Path
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import kotlin.math.abs
 import kotlin.math.min
-import kotlin.math.sin
 
 /** Primera pantalla XMB. Solo navegación; reproducción multimedia en el siguiente hito. */
 class MainActivity : Activity() {
     private lateinit var menu: MenuView
+    private lateinit var waveBackground: WaveBackgroundView
+    private val appearance by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,7 +29,15 @@ class MainActivity : Activity() {
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         menu = MenuView()
-        setContentView(menu)
+        waveBackground = WaveBackgroundView(this).apply {
+            val savedEffect = appearance.getString("background", null)
+            effect = WaveBackgroundView.Effect.entries.firstOrNull { it.id == savedEffect }
+                ?: WaveBackgroundView.Effect.BLUE
+        }
+        setContentView(FrameLayout(this).apply {
+            addView(waveBackground)
+            addView(menu)
+        })
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean = when (keyCode) {
@@ -37,7 +45,24 @@ class MainActivity : Activity() {
         KeyEvent.KEYCODE_DPAD_RIGHT -> { menu.changeCategory(1); true }
         KeyEvent.KEYCODE_DPAD_UP -> { menu.changeItem(-1); true }
         KeyEvent.KEYCODE_DPAD_DOWN -> { menu.changeItem(1); true }
+        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER ->
+            menu.activateAppearance() || super.onKeyDown(keyCode, event)
         else -> super.onKeyDown(keyCode, event)
+    }
+
+    private fun showAppearance() {
+        val effects = WaveBackgroundView.Effect.entries
+        AlertDialog.Builder(this)
+            .setTitle("Fondo animado")
+            .setSingleChoiceItems(effects.map { it.label }.toTypedArray(), waveBackground.effect.ordinal) {
+                dialog, index ->
+                val effect = effects[index]
+                waveBackground.effect = effect
+                appearance.edit().putString("background", effect.id).apply()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private inner class MenuView : View(this) {
@@ -55,10 +80,10 @@ class MainActivity : Activity() {
         private var downY = 0f
         private val scale = resources.displayMetrics.density
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val path = Path()
         private val white = Color.rgb(239, 248, 250)
         private val secondary = Color.rgb(159, 186, 200)
         private val accent = Color.rgb(110, 225, 215)
+        private val appearanceSelected get() = category == 2 && selection[category] == 0
 
         init {
             isFocusable = true
@@ -77,6 +102,12 @@ class MainActivity : Activity() {
             invalidate()
         }
 
+        fun activateAppearance(): Boolean {
+            if (!appearanceSelected) return false
+            showAppearance()
+            return true
+        }
+
         private fun text(canvas: Canvas, value: String, x: Float, y: Float,
                          size: Float, color: Int, bold: Boolean = false) {
             paint.reset()
@@ -93,29 +124,6 @@ class MainActivity : Activity() {
             val w = width.toFloat()
             val h = height.toFloat()
             if (w <= 0 || h <= 0) return
-
-            paint.reset()
-            paint.shader = LinearGradient(0f, 0f, w, h,
-                Color.rgb(15, 42, 61), Color.rgb(4, 12, 26), Shader.TileMode.CLAMP)
-            canvas.drawRect(0f, 0f, w, h, paint)
-            paint.shader = null
-
-            for (line in 0..2) {
-                path.reset()
-                val base = h * (0.70f + line * .045f)
-                path.moveTo(0f, base)
-                for (step in 1..32) {
-                    val x = w * step / 32f
-                    path.lineTo(x, base + sin(step / 32.0 * 6 + line).toFloat() * 12 * scale)
-                }
-                paint.reset()
-                paint.isAntiAlias = true
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 1f * scale
-                paint.color = accent
-                paint.alpha = 25 + 15 * line
-                canvas.drawPath(path, paint)
-            }
 
             animatedCategory += (category - animatedCategory) * 0.21f
             animatedItem += (selection[category] - animatedItem) * 0.24f
@@ -185,6 +193,8 @@ class MainActivity : Activity() {
                         changeCategory(if (dx < 0) 1 else -1)
                     } else if (abs(dy) > threshold) {
                         changeItem(if (dy < 0) 1 else -1)
+                    } else if (appearanceSelected && hitAppearance(event.x, event.y)) {
+                        activateAppearance()
                     } else if (event.y < height * .5f) {
                         if (event.x < width * .17f) changeCategory(-1)
                         if (event.x > width * .65f) changeCategory(1)
@@ -197,6 +207,14 @@ class MainActivity : Activity() {
                 MotionEvent.ACTION_CANCEL -> return true
             }
             return true
+        }
+
+        private fun hitAppearance(x: Float, y: Float): Boolean {
+            val top = height * .35f
+            val baseline = top + (116f - animatedItem * 44f) * scale
+            return baseline >= top + 70f * scale && baseline <= height - 48f * scale &&
+                x >= 22f * scale && x <= min(width - 18f * scale, 260f * scale) &&
+                y >= baseline - 25f * scale && y <= baseline + 13f * scale
         }
 
         override fun performClick(): Boolean {
