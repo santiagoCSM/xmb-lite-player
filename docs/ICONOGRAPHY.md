@@ -14,11 +14,11 @@ PlayStation presentó PSP Theme Toolbox como un conjunto que incluía Custom The
 
 La entrada del blog también menciona categorías cuadradas de 48 × 48 px y da 32 × 32 px con foco de 48 × 48 px para las opciones. La tabla anterior sigue el capítulo 3 de la guía técnica. La guía describe imágenes indexadas con canal alfa y recomienda bordes o gradaciones para distinguir las siluetas en fondos variables. Los ejemplos usan reflejos metálicos, bordes suaves y un halo blanco separado del icono. [PlayStation.Blog, How to Make Your Own PSP Themes](https://blog.playstation.com/?p=596) · [Sony, PSP Custom Theme, caps. 2–4 y 6](https://cdn.us.playstation.com/pscomauth/groups/public/documents/webasset/ps_custom_theme-english_pp.pdf)
 
-La app mantiene esa jerarquía con categorías más grandes, filas compactas y foco discreto. Las formas están dibujadas sobre una retícula común con esquinas redondeadas, trazos claros y un borde oscuro translúcido. Ese borde mantiene la silueta sobre una cresta brillante de la onda. El fondo se ve alrededor de cada figura. El realce usa una placa translúcida y una variación de tamaño y opacidad ligada a la transición existente. Los reflejos complejos, el desenfoque y el pulso continuo se reservan a la referencia histórica.
+La app mantiene esa jerarquía con categorías más grandes, filas compactas y foco discreto. Las formas están dibujadas sobre una retícula común con esquinas redondeadas y geometría blanca. El fondo se ve alrededor de cada figura. El realce usa una capa blanca de baja opacidad con un filo suave y una variación de tamaño y opacidad ligada a la transición existente. Los reflejos complejos, el desenfoque y el pulso continuo se reservan a la referencia histórica.
 
 ## Dibujos y formato
 
-Cada icono se construyó para este proyecto a partir de formas geométricas y trazos propios. Todos usan Android `VectorDrawable` con un viewport de 24 × 24 y dimensiones intrínsecas de 24 dp. La aplicación dibuja categorías de 24 a 32 dp, filas de 17 a 21 dp, y Atrás, la marca de ajuste y la búsqueda a 14–15 dp. Las acciones deshabilitadas conservan su silueta con menor opacidad. Retroceder y Adelantar reutilizan el salto de cinco segundos del D-pad mediante dos accesos junto a la barra de progreso.
+Cada icono se construyó para este proyecto a partir de formas geométricas y trazos propios. Todos usan Android `VectorDrawable` con un viewport de 24 × 24 y dimensiones intrínsecas de 24 dp. La aplicación dibuja categorías de 36 a 48 dp, filas de hasta 28 dp y los iconos de navegación y búsqueda a 17–18 dp. Las acciones deshabilitadas conservan su silueta con menor opacidad. Retroceder y Adelantar reutilizan el salto de cinco segundos del D-pad mediante dos accesos junto a la barra de progreso.
 
 Los archivos están en [app/src/main/res/drawable](../app/src/main/res/drawable). La vista carga y reutiliza una instancia por icono, conserva sus límites y ajusta su escala con Canvas. La familia de iconos prescinde de dependencias nuevas y recursos rasterizados en el APK. Las capturas se guardan aparte, en documentación.
 
@@ -39,7 +39,7 @@ Los 23 vectores originales se distribuyen bajo [MIT](../app/src/main/assets/lice
 
 ## Capturas y validación
 
-Las capturas se tomaron en un Redmi 9T (ARM64, Android 16). Los paneles reúnen capturas reales redimensionadas y usan pistas sintéticas. Se revisaron la jerarquía de categorías y opciones, la legibilidad sobre los dos fondos, el icono de ajuste aplicado y los estados del reproductor. Anterior aparece atenuado al comienzo de la cola.
+Las dos capturas de Música muestran el menú actual en un Redmi 9T (ARM64, Android 16). Los paneles de menús y reproducción documentan la primera integración de la familia con capturas redimensionadas y pistas sintéticas. Se revisaron la jerarquía de categorías y opciones, la legibilidad sobre los dos fondos, el icono de ajuste aplicado y los estados del reproductor. Anterior aparece atenuado al comienzo de la cola.
 
 | Música con ondas azules | Música con onda violeta |
 | --- | --- |

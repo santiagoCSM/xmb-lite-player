@@ -6,13 +6,7 @@
     android:viewportHeight="24">
     <path
         android:pathData="M6,5h12a2,2 0,0 1,2 2v10a2,2 0,0 1,-2 2H6a2,2 0,0 1,-2 -2V7a2,2 0,0 1,2 -2z M4,9h16M4,15h16M9,5v4m6,-4v4m-6,6v4m6,-4v4"
-        android:strokeColor="#DF0C1221"
-        android:strokeWidth="3.65"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M6,5h12a2,2 0,0 1,2 2v10a2,2 0,0 1,-2 2H6a2,2 0,0 1,-2 -2V7a2,2 0,0 1,2 -2z M4,9h16M4,15h16M9,5v4m6,-4v4m-6,6v4m6,-4v4"
-        android:strokeColor="#FFF3F7FB"
+        android:strokeColor="#FFFFFFFF"
         android:strokeWidth="1.85"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />

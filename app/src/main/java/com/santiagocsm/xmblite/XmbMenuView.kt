@@ -76,7 +76,6 @@ internal class XmbMenuView(
     private val white = Color.rgb(239, 248, 250)
     private val muted = Color.rgb(184, 211, 224)
     private val accent = Color.rgb(110, 225, 215)
-    private val highlight = 0x40256375
     private var downX = 0f
     private var downY = 0f
     private var trackingTouch = false
@@ -89,18 +88,18 @@ internal class XmbMenuView(
     private val categoryY get() = height * 0.30f
     private val categoryStep get() = min(width * 0.22f, 104f * density)
     private val rowY get() = height * if (page == Page.PLAYER) 0.69f else 0.53f
-    private val rowStep get() = min(54f * density, height * 0.135f)
-    private val rowLeft get() = anchorX - 24f * density
-    private val rowRight get() = min(width - 12f * density, rowLeft + 300f * density)
+    private val rowStep get() = min(62f * density, height * 0.135f)
+    private val rowLeft get() = (anchorX - 38f * density).coerceAtLeast(10f * density)
+    private val rowRight get() = min(width - 12f * density, anchorX + 280f * density)
     private val listTop get() = when (page) {
-        Page.ROOT -> categoryY + 35f * density
+        Page.ROOT -> categoryY + 48f * density
         Page.PLAYER -> height * 0.52f
         else -> height * 0.30f
     }
     private val progressY get() = height * 0.445f
     private val timeY get() = height * 0.505f
-    private val seekIconY get() = timeY - 4f * density
-    private val seekIconInset get() = 7f * density
+    private val seekIconY get() = timeY - 4.5f * density
+    private val seekIconInset get() = 9f * density
     private val listBottom get() = height - 18f * density
     private val titleX get() = 20f * density
     private val headerY get() = min(33f * density, height * 0.12f)
@@ -206,7 +205,7 @@ internal class XmbMenuView(
     }
 
     private fun title() = when (page) {
-        Page.ROOT -> "XMB / LITE"
+        Page.ROOT -> ""
         Page.APPEARANCE -> "Apariencia"
         Page.EFFECTS -> "Fondo animado"
         Page.MOTION -> "Rendimiento"
@@ -429,22 +428,21 @@ internal class XmbMenuView(
     override fun onDraw(canvas: Canvas) {
         val progress = progress(SystemClock.uptimeMillis())
         if (page == Page.ROOT) {
-            text(canvas, "XMB / LITE", titleX, headerY, 13f, accent, true)
             drawCategories(canvas, categoryPosition(progress))
         } else {
             icons.draw(canvas, XmbIcon.BACK, titleX + 6f * density, headerY - 4.5f * density,
-                14f * density, 235)
-            text(canvas, "Atrás", titleX + 16f * density, headerY, 13f, accent, true)
-            text(canvas, title(), anchorX, height * .28f, 22f, white, true, maxWidth = width - anchorX - 12f * density)
+                17f * density, 235)
+            text(canvas, "Atrás", titleX + 19f * density, headerY, 15f, accent, true)
+            text(canvas, title(), anchorX, height * .28f, 25f, white, true, maxWidth = width - anchorX - 12f * density)
         }
 
         when (page) {
             Page.INFO -> {
-                text(canvas, "XMB Lite Player", anchorX, rowY, 17f, white, true)
-                text(canvas, "Reproductor local · Versión 0.2", anchorX, rowY + 25f * density, 12f, muted)
+                text(canvas, "XMB Lite Player", anchorX, rowY, 20f, white, true)
+                text(canvas, "Reproductor local · Versión 0.2", anchorX, rowY + 28f * density, 14f, muted)
             }
             Page.MEDIA -> {
-                text(canvas, "Reproducción local pendiente", anchorX, rowY, 15f, muted)
+                text(canvas, "Reproducción local pendiente", anchorX, rowY, 17f, muted)
             }
             Page.PLAYER -> {
                 drawPlayer(canvas)
@@ -452,7 +450,7 @@ internal class XmbMenuView(
             }
             else -> {
                 libraryMessage()?.let {
-                    text(canvas, it, anchorX, height * 0.37f, 12f, muted,
+                    text(canvas, it, anchorX, height * 0.37f, 14f, muted,
                         maxWidth = rowRight - anchorX)
                 }
                 drawRows(canvas, rowPosition(progress), if (revealRows) progress else 1f)
@@ -484,10 +482,10 @@ internal class XmbMenuView(
         val width = (rowRight - anchorX).coerceAtLeast(0f)
         val note = playback.message ?: playback.artist
         playback.title?.let {
-            text(canvas, it, anchorX, height * 0.344f, 16f, white, true, maxWidth = width)
+            text(canvas, it, anchorX, height * 0.344f, 19f, white, true, maxWidth = width)
         }
         note?.let {
-            text(canvas, it, anchorX, height * 0.394f, 12f, muted, maxWidth = width)
+            text(canvas, it, anchorX, height * 0.394f, 14f, muted, maxWidth = width)
         }
         val fraction = if (playback.duration > 0) {
             (playback.position.toDouble() / playback.duration).toFloat().coerceIn(0f, 1f)
@@ -498,28 +496,20 @@ internal class XmbMenuView(
         paint.color = accent
         canvas.drawRect(anchorX, progressY, anchorX + width * fraction, progressY + stroke, paint)
         val seekAlpha = if (playback.canSeek && playback.duration > 0) 220 else 114
-        icons.draw(canvas, XmbIcon.REWIND, anchorX + seekIconInset, seekIconY, 15f * density, seekAlpha)
-        icons.draw(canvas, XmbIcon.FAST_FORWARD, rowRight - seekIconInset, seekIconY, 15f * density, seekAlpha)
-        text(canvas, positionLabel, anchorX + 18f * density, timeY, 11f, muted)
-        text(canvas, durationLabel, rowRight - 18f * density, timeY, 11f, muted, align = Paint.Align.RIGHT)
+        icons.draw(canvas, XmbIcon.REWIND, anchorX + seekIconInset, seekIconY, 18f * density, seekAlpha)
+        icons.draw(canvas, XmbIcon.FAST_FORWARD, rowRight - seekIconInset, seekIconY, 18f * density, seekAlpha)
+        text(canvas, positionLabel, anchorX + 22f * density, timeY, 13f, muted)
+        text(canvas, durationLabel, rowRight - 22f * density, timeY, 13f, muted, align = Paint.Align.RIGHT)
     }
 
     private fun drawCategories(canvas: Canvas, position: Float) {
         for (entry in Category.entries) {
             val x = anchorX + (entry.ordinal - position) * categoryStep
             val focus = 1f - abs(entry.ordinal - position).coerceAtMost(1f)
-            paint.color = 0xff11213b.toInt()
-            paint.alpha = (90 + 36 * focus).toInt()
-            canvas.drawCircle(x, categoryY, (18f + 5f * focus) * density, paint)
-            if (focus > 0f) {
-                paint.color = accent
-                paint.alpha = (52 * focus).toInt()
-                canvas.drawCircle(x, categoryY, 23.5f * density, paint)
-            }
-            icons.draw(canvas, entry.icon, x, categoryY, (24f + 8f * focus) * density,
+            icons.draw(canvas, entry.icon, x, categoryY, (36f + 12f * focus) * density,
                 (204 + 51 * focus).toInt())
             val selected = entry.ordinal == category
-            text(canvas, entry.title, x, categoryY + 38f * density, 11f,
+            text(canvas, entry.title, x, categoryY + 43f * density, 13f,
                 if (selected) white else muted, selected, Paint.Align.CENTER)
         }
     }
@@ -568,21 +558,33 @@ internal class XmbMenuView(
             val focus = 1f - abs(index - position).coerceAtMost(1f)
             val enabled = page != Page.PLAYER || transportEnabled(index)
             if (focus > 0f) {
-                paint.color = highlight
-                paint.alpha = (64 * focus).toInt()
-                canvas.drawRoundRect(rowLeft, y - rowStep * .40f, rowRight, y + rowStep * .40f,
-                    10f * density, 10f * density, paint)
+                val halfHeight = rowStep * .43f
+                val radius = min(15f * density, halfHeight)
+                paint.color = Color.WHITE
+                paint.alpha = (22 * focus).toInt()
+                canvas.drawRoundRect(rowLeft, y - halfHeight, rowRight, y + halfHeight, radius, radius, paint)
+
+                val border = density
+                paint.alpha = (44 * focus).toInt()
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = border
+                val inset = border * .5f
+                canvas.drawRoundRect(rowLeft + inset, y - halfHeight + inset, rowRight - inset,
+                    y + halfHeight - inset, radius, radius, paint)
+                paint.style = Paint.Style.FILL
             }
             val applied = (page == Page.EFFECTS && index == effectIndex) ||
                 (page == Page.MOTION && index == motionIndex)
             val iconAlpha = if (enabled) (202 + 53 * focus).toInt() else (112 + 20 * focus).toInt()
-            icons.draw(canvas, rowIcon(index), anchorX - 13f * density, y,
-                (17f + 4f * focus) * density, iconAlpha)
-            text(canvas, rowLabel(index), anchorX + 2f * density, y + 5f * density,
-                if (selected) 17f else 14f, if (selected && enabled) white else muted, selected,
-                maxWidth = rowRight - anchorX - (if (applied) 32f else 10f) * density)
+            val textX = rowLeft + 52f * density
+            val iconSize = min((23f + 5f * focus) * density, rowStep * .66f)
+            icons.draw(canvas, rowIcon(index), rowLeft + 25f * density, y, iconSize, iconAlpha)
+            text(canvas, rowLabel(index), textX, y,
+                if (selected) 20f else 17f, if (selected && enabled) white else muted, selected,
+                maxWidth = rowRight - textX - (if (applied) 42f else 16f) * density,
+                centerVertically = true)
             if (applied) {
-                icons.draw(canvas, XmbIcon.APPLIED, rowRight - 12f * density, y, 15f * density, 235)
+                icons.draw(canvas, XmbIcon.APPLIED, rowRight - 24f * density, y, 18f * density, 235)
             }
         }
         canvas.restore()
@@ -590,7 +592,8 @@ internal class XmbMenuView(
 
     private fun text(
         canvas: Canvas, label: String, x: Float, y: Float, size: Float, color: Int,
-        bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, maxWidth: Float = Float.POSITIVE_INFINITY
+        bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT,
+        maxWidth: Float = Float.POSITIVE_INFINITY, centerVertically: Boolean = false
     ) {
         paint.color = color
         paint.textSize = size * density
@@ -598,7 +601,8 @@ internal class XmbMenuView(
         paint.textAlign = align
         if (maxWidth <= 0f) return
         val visible = if (maxWidth.isFinite()) fittedLabel(label, maxWidth, size, bold) else label
-        canvas.drawText(visible, 0, visible.length, x, y, paint)
+        val baseline = if (centerVertically) y - (paint.ascent() + paint.descent()) * .5f else y
+        canvas.drawText(visible, 0, visible.length, x, baseline, paint)
     }
 
     private fun fittedLabel(label: String, width: Float, size: Float, bold: Boolean): CharSequence {
