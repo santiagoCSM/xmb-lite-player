@@ -12,7 +12,17 @@ En **Ajustes → Apariencia → Rendimiento** puedes elegir entre **Fluido**, **
 
 | Ondas azules | Onda violeta |
 | --- | --- |
-| <img src="docs/capturas/iconos-musica-azul.webp" alt="Menú XMB con el fondo Ondas azules" width="240"> | <img src="docs/capturas/iconos-musica-violeta.webp" alt="Menú XMB con el fondo Onda violeta" width="240"> |
+| <img src="docs/capturas-ui/musica-azul.webp" alt="Menú XMB con el fondo Ondas azules" width="240"> | <img src="docs/capturas-ui/musica-violeta.webp" alt="Menú XMB con el fondo Onda violeta" width="240"> |
+
+## Galería de interfaz
+
+Capturas del Redmi 9T con Android 16. La reproducción usa pistas sintéticas y las listas ocultan los títulos de archivos personales. [Carpeta de capturas](docs/capturas-ui/)
+
+- **Navegación** · [Música con ondas azules](docs/capturas-ui/musica-azul.webp) · [Música con onda violeta](docs/capturas-ui/musica-violeta.webp) · [Video](docs/capturas-ui/video.webp) · [Videos locales](docs/capturas-ui/videos-locales.webp) · [Carpetas](docs/capturas-ui/carpetas.webp)
+- **Biblioteca** · [Canciones](docs/capturas-ui/canciones.webp) · [Álbumes](docs/capturas-ui/albumes.webp) · [Canciones de un álbum](docs/capturas-ui/canciones-del-album.webp) · [Artistas](docs/capturas-ui/artistas.webp) · [Canciones de un artista](docs/capturas-ui/canciones-del-artista.webp)
+- **Ajustes** · [Menú](docs/capturas-ui/ajustes.webp) · [Apariencia](docs/capturas-ui/apariencia.webp) · [Selector de fondo](docs/capturas-ui/selector-de-fondo.webp) · [Fluido](docs/capturas-ui/rendimiento-fluido.webp) · [Ahorro](docs/capturas-ui/rendimiento-ahorro.webp) · [Estático](docs/capturas-ui/rendimiento-estatico.webp) · [Información](docs/capturas-ui/informacion.webp)
+- **Reproducción** · [Sin pista](docs/capturas-ui/reproductor-sin-pista.webp) · [Reproduciendo](docs/capturas-ui/reproduciendo.webp) · [En pausa](docs/capturas-ui/pausa.webp) · [Tarjeta en el inicio](docs/capturas-ui/tarjeta-en-inicio.webp) · [Tarjeta en la biblioteca](docs/capturas-ui/tarjeta-en-biblioteca.webp) · [Tarjeta en Ajustes](docs/capturas-ui/tarjeta-en-ajustes.webp) · [Tarjeta en pausa](docs/capturas-ui/tarjeta-en-pausa.webp) · [Animación en tres fotogramas](docs/capturas-ui/transicion-tarjeta.webp)
+- **Otros estados** · [Acceso a música](docs/capturas-ui/acceso-a-musica.webp) · [Fin de cola](docs/capturas-ui/fin-de-cola.webp) · [Archivo incompatible](docs/capturas-ui/archivo-incompatible.webp)
 
 ## Iconografía
 

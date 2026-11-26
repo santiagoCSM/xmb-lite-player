@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.TextPaint
@@ -14,6 +15,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.WindowInsets
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -83,26 +85,60 @@ internal class XmbMenuView(
     private var lastRow = 0f
     private var animationStart = 0L
     private var revealRows = false
+    private var cardAnimationStart = 0L
+    private var cardAnimationFrom = 0f
+
+    private var cutoutTop = 0
+    private var cutoutLeft = 0
+    private var cutoutRight = 0
 
     private val anchorX get() = width * 0.25f
-    private val categoryY get() = height * 0.30f
+    private val categoryY get() = (height * .30f).coerceAtLeast(
+        if (hasDockedPlayer) dockTop + cardHeight + 28f * density else 0f
+    )
     private val categoryStep get() = min(width * 0.22f, 104f * density)
-    private val rowY get() = height * if (page == Page.PLAYER) 0.69f else 0.53f
+    private val titleY get() = (height * .28f).coerceAtLeast(
+        if (hasDockedPlayer) dockTop + cardHeight + 28f * density else headerY + 32f * density
+    )
+    private val libraryMessageY get() = maxOf(height * .37f, titleY + 24f * density)
+    private val rowY get() = when (page) {
+        Page.ROOT -> categoryY + min(118f * density, height * .20f)
+            .coerceAtLeast(48f * density + rowStep * .43f)
+        else -> maxOf(height * .45f, libraryMessageY + rowStep * .43f + 8f * density)
+    }
     private val rowStep get() = min(62f * density, height * 0.135f)
     private val rowLeft get() = (anchorX - 38f * density).coerceAtLeast(10f * density)
     private val rowRight get() = min(width - 12f * density, anchorX + 280f * density)
-    private val listTop get() = when (page) {
-        Page.ROOT -> categoryY + 48f * density
-        Page.PLAYER -> height * 0.52f
-        else -> height * 0.30f
-    }
-    private val progressY get() = height * 0.445f
-    private val timeY get() = height * 0.505f
-    private val seekIconY get() = timeY - 4.5f * density
-    private val seekIconInset get() = 9f * density
+    private val listTop get() = if (page == Page.ROOT) categoryY + 48f * density
+        else titleY + 10f * density
     private val listBottom get() = height - 18f * density
-    private val titleX get() = 20f * density
-    private val headerY get() = min(33f * density, height * 0.12f)
+    private val titleX get() = cutoutLeft + 20f * density
+    private val headerY get() = cutoutTop + 24f * density
+
+    private val cardCenterX get() = (cutoutLeft + width - cutoutRight) * .5f
+    private val cardWidth get() = (width - cutoutLeft - cutoutRight - 28f * density)
+        .coerceIn(0f, 368f * density)
+    private val cardHeight get() = min(108f * density, height * .31f)
+    private val cardLeft get() = cardCenterX - cardWidth * .5f
+    private val cardRight get() = cardCenterX + cardWidth * .5f
+    private val dockTop get() = cutoutTop + 36f * density
+    private val railLeft get() = cardLeft + 54f * density
+    private val railRight get() = cardRight - 54f * density
+    private val controlStep get() = min(52f * density, cardWidth * .18f)
+
+    private val hasCurrentTrack get() = playback.canToggle && playback.title != null
+    private val hasDockedPlayer get() = !isPlayerPage() && hasCurrentTrack
+
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        if (Build.VERSION.SDK_INT >= 28) {
+            val cutout = insets.displayCutout
+            cutoutTop = cutout?.safeInsetTop ?: 0
+            cutoutLeft = cutout?.safeInsetLeft ?: 0
+            cutoutRight = cutout?.safeInsetRight ?: 0
+            invalidate()
+        }
+        return super.onApplyWindowInsets(insets)
+    }
 
     init {
         isFocusableInTouchMode = true
@@ -180,7 +216,7 @@ internal class XmbMenuView(
 
     fun refreshPlayback() {
         removeCallbacks(progressTick)
-        if (!isAttachedToWindow || !isShown || windowVisibility != VISIBLE || page != Page.PLAYER) return
+        if (!isAttachedToWindow || !isShown || windowVisibility != VISIBLE) return
         val next = music.playback()
         if (next != playback) {
             if (next.position / 1000 != playback.position / 1000) positionLabel = formatPlaybackTime(next.position)
@@ -192,6 +228,10 @@ internal class XmbMenuView(
             invalidate()
         }
         if (playback.playing) postDelayed(progressTick, 500)
+    }
+
+    fun pausePlaybackUpdates() {
+        removeCallbacks(progressTick)
     }
 
     override fun onVisibilityAggregated(isVisible: Boolean) {
@@ -220,12 +260,16 @@ internal class XmbMenuView(
 
     private fun describeSelection() {
         val selected = if (rowCount() == 0) null else rowLabel(row())
-        contentDescription = when (page) {
+        val selectionLabel = when (page) {
             Page.ROOT -> "${Category.entries[category].title}, $selected"
             Page.INFO -> "Información. XMB Lite Player. Versión 0.2."
             Page.MEDIA -> "${title()}. Reproducción local pendiente."
             else -> selected?.let { "${title()}, $it" } ?: libraryMessage() ?: title()
         }
+        contentDescription = if (!isPlayerPage() && hasCurrentTrack) {
+            val status = if (playback.wantsToPlay) "En reproducción" else "En pausa"
+            "$selectionLabel. $status, ${playback.title}"
+        } else selectionLabel
     }
 
     fun saveSelection(): Bundle {
@@ -247,6 +291,7 @@ internal class XmbMenuView(
             state.getInt("groupParent"), state.getInt("playerParent")))
         lastCategory = category.toFloat()
         lastRow = row().toFloat()
+        cardAnimationFrom = if (isPlayerPage()) 1f else 0f
         describeSelection()
     }
 
@@ -293,6 +338,11 @@ internal class XmbMenuView(
     }
 
     private fun showPage(next: Page) {
+        val now = SystemClock.uptimeMillis()
+        if (isPlayerPage() != (next == Page.PLAYER)) {
+            cardAnimationFrom = cardExpansion(now)
+            cardAnimationStart = now
+        }
         selection.page = next
         onPageChanged(next)
         refreshPlayback()
@@ -426,14 +476,22 @@ internal class XmbMenuView(
     }
 
     override fun onDraw(canvas: Canvas) {
-        val progress = progress(SystemClock.uptimeMillis())
+        val now = SystemClock.uptimeMillis()
+        val progress = progress(now)
+        val expansion = cardExpansion(now)
         if (page == Page.ROOT) {
             drawCategories(canvas, categoryPosition(progress))
         } else {
             icons.draw(canvas, XmbIcon.BACK, titleX + 6f * density, headerY - 4.5f * density,
                 17f * density, 235)
             text(canvas, "Atrás", titleX + 19f * density, headerY, 15f, accent, true)
-            text(canvas, title(), anchorX, height * .28f, 25f, white, true, maxWidth = width - anchorX - 12f * density)
+            if (isPlayerPage()) {
+                text(canvas, title(), cardCenterX, titleY, 25f, white, true, Paint.Align.CENTER,
+                    maxWidth = cardWidth)
+            } else {
+                text(canvas, title(), anchorX, titleY, 25f, white, true,
+                    maxWidth = width - anchorX - 12f * density)
+            }
         }
 
         when (page) {
@@ -444,19 +502,21 @@ internal class XmbMenuView(
             Page.MEDIA -> {
                 text(canvas, "Reproducción local pendiente", anchorX, rowY, 17f, muted)
             }
-            Page.PLAYER -> {
-                drawPlayer(canvas)
-                drawRows(canvas, rowPosition(progress), if (revealRows) progress else 1f)
-            }
+            Page.PLAYER -> Unit
             else -> {
                 libraryMessage()?.let {
-                    text(canvas, it, anchorX, height * 0.37f, 14f, muted,
+                    text(canvas, it, anchorX, libraryMessageY, 14f, muted,
                         maxWidth = rowRight - anchorX)
                 }
                 drawRows(canvas, rowPosition(progress), if (revealRows) progress else 1f)
             }
         }
-        if (progress < 1f) postInvalidateOnAnimation()
+        val showCard = isPlayerPage() || hasCurrentTrack
+        if (showCard) {
+            drawPlaybackCard(canvas, expansion)
+        }
+        val cardMoving = showCard && expansion != (if (isPlayerPage()) 1f else 0f)
+        if (progress < 1f || cardMoving) postInvalidateOnAnimation()
     }
 
     private fun libraryMessage(): String? {
@@ -478,28 +538,91 @@ internal class XmbMenuView(
         else -> playback.canToggle || playback.connectionFailed
     }
 
-    private fun drawPlayer(canvas: Canvas) {
-        val width = (rowRight - anchorX).coerceAtLeast(0f)
-        val note = playback.message ?: playback.artist
+    private fun cardExpansion(now: Long): Float {
+        val target = if (isPlayerPage()) 1f else 0f
+        val t = ((now - cardAnimationStart) / 300f).coerceIn(0f, 1f)
+        val remaining = 1f - t
+        return mix(target, cardAnimationFrom, remaining * remaining * remaining)
+    }
+
+    private fun mix(start: Float, end: Float, fraction: Float) =
+        start + (end - start) * fraction
+
+    private fun cardTop(expansion: Float) = mix(dockTop, titleYForPlayer + 14f * density, expansion)
+
+    private val titleYForPlayer get() = maxOf(height * .28f, headerY + 32f * density)
+
+    private fun drawPlaybackCard(canvas: Canvas, expansion: Float) {
+        if (cardWidth <= 0f || cardHeight <= 0f) return
+        val top = cardTop(expansion)
+        val bottom = top + cardHeight
+        val radius = 14f * density
+        paint.color = Color.WHITE
+        paint.alpha = 22
+        canvas.drawRoundRect(cardLeft, top, cardRight, bottom, radius, radius, paint)
+        paint.alpha = 44
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = density
+        val inset = density * .5f
+        canvas.drawRoundRect(cardLeft + inset, top + inset, cardRight - inset, bottom - inset,
+            radius, radius, paint)
+        paint.style = Paint.Style.FILL
+
+        val maxWidth = cardWidth - 28f * density
         playback.title?.let {
-            text(canvas, it, anchorX, height * 0.344f, 19f, white, true, maxWidth = width)
+            text(canvas, it, cardCenterX, top + cardHeight * .19f,
+                16f, white, true, Paint.Align.CENTER, maxWidth, centerVertically = true)
         }
+        val note = playback.message ?: playback.artist
         note?.let {
-            text(canvas, it, anchorX, height * 0.394f, 14f, muted, maxWidth = width)
+            text(canvas, it, cardCenterX, top + cardHeight * .36f,
+                12f, muted, align = Paint.Align.CENTER, maxWidth = maxWidth, centerVertically = true)
         }
-        val fraction = if (playback.duration > 0) {
-            (playback.position.toDouble() / playback.duration).toFloat().coerceIn(0f, 1f)
-        } else 0f
-        val stroke = 2f * density
-        paint.color = muted
-        canvas.drawRect(anchorX, progressY, rowRight, progressY + stroke, paint)
-        paint.color = accent
-        canvas.drawRect(anchorX, progressY, anchorX + width * fraction, progressY + stroke, paint)
-        val seekAlpha = if (playback.canSeek && playback.duration > 0) 220 else 114
-        icons.draw(canvas, XmbIcon.REWIND, anchorX + seekIconInset, seekIconY, 18f * density, seekAlpha)
-        icons.draw(canvas, XmbIcon.FAST_FORWARD, rowRight - seekIconInset, seekIconY, 18f * density, seekAlpha)
-        text(canvas, positionLabel, anchorX + 22f * density, timeY, 13f, muted)
-        text(canvas, durationLabel, rowRight - 22f * density, timeY, 13f, muted, align = Paint.Align.RIGHT)
+
+        val barY = top + cardHeight * .54f
+        if (railRight > railLeft) {
+            val fraction = if (playback.duration > 0) {
+                (playback.position.toDouble() / playback.duration).toFloat().coerceIn(0f, 1f)
+            } else 0f
+            val halfStroke = density
+            paint.color = Color.WHITE
+            paint.alpha = 68
+            canvas.drawRect(railLeft, barY - halfStroke, railRight, barY + halfStroke, paint)
+            paint.color = accent
+            canvas.drawRect(railLeft, barY - halfStroke,
+                mix(railLeft, railRight, fraction), barY + halfStroke, paint)
+            text(canvas, positionLabel, railLeft - 8f * density, barY, 11f, muted,
+                align = Paint.Align.RIGHT, maxWidth = 36f * density, centerVertically = true)
+            text(canvas, durationLabel, railRight + 8f * density, barY, 11f, muted,
+                maxWidth = 36f * density, centerVertically = true)
+        }
+
+        val controlY = top + cardHeight * .81f
+        val iconSize = min(22f * density, cardHeight * .24f)
+        val canSeek = playback.canSeek && playback.duration > 0
+        for (slot in 0..4) {
+            val x = cardCenterX + (slot - 2) * controlStep
+            val enabled = if (slot == 0 || slot == 4) canSeek else transportEnabled(slot - 1)
+            if (isPlayerPage() && slot == row() + 1) {
+                paint.color = Color.WHITE
+                paint.alpha = 32
+                canvas.drawCircle(x, controlY, iconSize * .73f, paint)
+            }
+            val icon = when (slot) {
+                0 -> XmbIcon.REWIND
+                1 -> XmbIcon.PREVIOUS
+                2 -> rowIconForToggle()
+                3 -> XmbIcon.NEXT
+                else -> XmbIcon.FAST_FORWARD
+            }
+            icons.draw(canvas, icon, x, controlY, iconSize, if (enabled) 255 else 114)
+        }
+    }
+
+    private fun rowIconForToggle() = when {
+        playback.connectionFailed -> XmbIcon.RETRY
+        playback.wantsToPlay -> XmbIcon.PAUSE
+        else -> XmbIcon.PLAY
     }
 
     private fun drawCategories(canvas: Canvas, position: Float) {
@@ -531,15 +654,6 @@ internal class XmbMenuView(
             Page.APPEARANCE -> if (index == 0) XmbIcon.BACKGROUND else XmbIcon.PERFORMANCE
             Page.EFFECTS -> XmbIcon.BACKGROUND
             Page.MOTION -> XmbIcon.PERFORMANCE
-            Page.PLAYER -> when (index) {
-                0 -> XmbIcon.PREVIOUS
-                2 -> XmbIcon.NEXT
-                else -> when {
-                    playback.connectionFailed -> XmbIcon.RETRY
-                    playback.wantsToPlay -> XmbIcon.PAUSE
-                    else -> XmbIcon.PLAY
-                }
-            }
             else -> error("There are no rows on $page")
         }
     }
@@ -556,7 +670,6 @@ internal class XmbMenuView(
             val y = origin + (index - position) * rowStep
             val selected = index == selectedRow
             val focus = 1f - abs(index - position).coerceAtMost(1f)
-            val enabled = page != Page.PLAYER || transportEnabled(index)
             if (focus > 0f) {
                 val halfHeight = rowStep * .43f
                 val radius = min(15f * density, halfHeight)
@@ -575,12 +688,12 @@ internal class XmbMenuView(
             }
             val applied = (page == Page.EFFECTS && index == effectIndex) ||
                 (page == Page.MOTION && index == motionIndex)
-            val iconAlpha = if (enabled) (202 + 53 * focus).toInt() else (112 + 20 * focus).toInt()
+            val iconAlpha = (202 + 53 * focus).toInt()
             val textX = rowLeft + 52f * density
             val iconSize = min((23f + 5f * focus) * density, rowStep * .66f)
             icons.draw(canvas, rowIcon(index), rowLeft + 25f * density, y, iconSize, iconAlpha)
             text(canvas, rowLabel(index), textX, y,
-                if (selected) 20f else 17f, if (selected && enabled) white else muted, selected,
+                if (selected) 20f else 17f, if (selected) white else muted, selected,
                 maxWidth = rowRight - textX - (if (applied) 42f else 16f) * density,
                 centerVertically = true)
             if (applied) {
@@ -646,39 +759,56 @@ internal class XmbMenuView(
     }
 
     private fun tap(x: Float, y: Float) {
-        val progress = progress(SystemClock.uptimeMillis())
-        if (page != Page.ROOT && x < 100f * density && y < headerY + 16f * density) {
+        val now = SystemClock.uptimeMillis()
+        val progress = progress(now)
+        if (page != Page.ROOT && x in cutoutLeft.toFloat()..(cutoutLeft + 100f * density) &&
+            y in cutoutTop.toFloat()..(headerY + 10f * density)
+        ) {
             goBack()
             return
         }
+        if (isPlayerPage() || hasCurrentTrack) {
+            val top = cardTop(cardExpansion(now))
+            if (x in cardLeft..cardRight && y in top..(top + cardHeight)) {
+                tapPlaybackCard(x, (y - top) / cardHeight)
+                return
+            }
+        }
+        if (isPlayerPage()) return
         if (page == Page.ROOT && abs(y - (categoryY + 8f * density)) <= 37f * density) {
             val index = ((x - anchorX) / categoryStep + categoryPosition(progress)).roundToInt()
             if (index in Category.entries.indices) selectCategory(index)
-            return
-        }
-        if (page == Page.PLAYER && y >= (progressY + seekIconY) * .5f && y < listTop) {
-            if (abs(x - (anchorX + seekIconInset)) <= 13f * density) {
-                seekRelative(-5000)
-                return
-            }
-            if (abs(x - (rowRight - seekIconInset)) <= 13f * density) {
-                seekRelative(5000)
-                return
-            }
-        }
-        if (page == Page.PLAYER && playback.canSeek && playback.duration > 0 &&
-            x in anchorX..rowRight && abs(y - progressY) <= min(16f * density, height * 0.06f)
-        ) {
-            music.seekTo((playback.duration * ((x - anchorX) / (rowRight - anchorX))).toLong())
             return
         }
         if (x !in rowLeft..rowRight || y !in listTop..listBottom) return
         val offset = if (revealRows) (1f - progress) * 12f * density else 0f
         val index = ((y - rowY - offset) / rowStep + rowPosition(progress)).roundToInt()
         if (index !in 0 until rowCount()) return
-        if (page == Page.PLAYER) {
-            selectRow(index)
-            performClick()
-        } else if (index == row()) performClick() else selectRow(index)
+        if (index == row()) performClick() else selectRow(index)
+    }
+
+    private fun tapPlaybackCard(x: Float, relativeY: Float) {
+        if (relativeY >= .66f && controlStep > 0f) {
+            val slot = ((x - cardCenterX) / controlStep + 2f).roundToInt()
+            when (slot) {
+                0 -> seekRelative(-5000)
+                4 -> seekRelative(5000)
+                in 1..3 -> if (transportEnabled(slot - 1)) {
+                    if (isPlayerPage()) selectRow(slot - 1)
+                    music.transport(Transport.entries[slot - 1])
+                }
+            }
+            return
+        }
+        if (relativeY in 0.44f..0.64f && x in railLeft..railRight && railRight > railLeft &&
+            playback.canSeek && playback.duration > 0
+        ) {
+            music.seekTo((playback.duration * ((x - railLeft) / (railRight - railLeft))).toLong())
+            return
+        }
+        if (!isPlayerPage()) {
+            selection.enterPlayer()
+            showPage(Page.PLAYER)
+        }
     }
 }

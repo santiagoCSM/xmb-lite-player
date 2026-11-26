@@ -25,6 +25,10 @@ import java.util.concurrent.Executors
 
 @UnstableApi
 internal class MainActivity : ComponentActivity(), MusicControls {
+    private companion object {
+        var sessionUsed = false
+    }
+
     private lateinit var menu: XmbMenuView
     private val appearance by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
 
@@ -102,7 +106,7 @@ internal class MainActivity : ComponentActivity(), MusicControls {
     override fun onStart() {
         super.onStart()
         started = true
-        if (menu.isPlayerPage()) connectPlayer()
+        if (sessionUsed || menu.isPlayerPage()) connectPlayer()
         loadLibrary()
     }
 
@@ -113,7 +117,7 @@ internal class MainActivity : ComponentActivity(), MusicControls {
         query?.cancel()
         pendingPlay = null
         disconnectPlayer()
-        menu.refreshPlayback()
+        menu.pausePlaybackUpdates()
         super.onStop()
     }
 
@@ -228,6 +232,7 @@ internal class MainActivity : ComponentActivity(), MusicControls {
     }
 
     private fun playSelection(player: MediaController, selection: PendingPlay) {
+        sessionUsed = true
         pendingPlay = null
         player.setMediaItems(selection.songs.map(Song::mediaItem), selection.index, 0L)
         player.prepare()

@@ -63,7 +63,7 @@ internal class MenuSelection(private val categoryCount: Int) {
         groupKey = state.groupKey
         groupParent = if (state.groupParent == Page.ARTISTS.ordinal) Page.ARTISTS else Page.ALBUMS
         playerParent = Page.entries.getOrNull(state.playerParent)
-            ?.takeIf { it == Page.SONGS || it == Page.GROUP } ?: Page.ROOT
+            ?.takeUnless { it == Page.PLAYER } ?: Page.ROOT
     }
 
     data class Snapshot(

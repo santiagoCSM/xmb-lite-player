@@ -46,6 +46,19 @@ class MenuSelectionTest {
         assertEquals(0, restored.row(8))
     }
 
+    @Test fun miniPlayerReturnsToSettingsAfterRecreation() {
+        val menu = MenuSelection(3)
+        menu.page = Page.APPEARANCE
+        menu.selectRow(1)
+        menu.enterPlayer()
+        menu.page = Page.PLAYER
+
+        val restored = MenuSelection(3).apply { restore(menu.snapshot()) }
+        assertEquals(Page.APPEARANCE, restored.parent())
+        restored.page = restored.parent()!!
+        assertEquals(1, restored.row(2))
+    }
+
     @Test fun clampsSelectionsAgainstSmallerListsAndKeepsSnapshotIndependent() {
         val menu = MenuSelection(3)
         menu.page = Page.SONGS
