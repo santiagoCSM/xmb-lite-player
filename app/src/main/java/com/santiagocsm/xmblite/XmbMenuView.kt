@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.text.TextPaint
 import android.text.TextUtils
+import android.util.LruCache
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -24,6 +25,7 @@ internal class XmbMenuView(
     private var effect: WaveBackgroundView.Effect,
     private var motion: WaveBackgroundView.Motion,
     private val music: MusicControls,
+    private val onPageChanged: (Page) -> Unit,
     private val onEffect: (WaveBackgroundView.Effect) -> Unit,
     private val onMotion: (WaveBackgroundView.Motion) -> Unit
 ) : View(context) {
@@ -31,10 +33,6 @@ internal class XmbMenuView(
         MUSIC("Música", "♫", "Canciones", "Álbumes", "Artistas", "En reproducción"),
         VIDEO("Video", "▶", "Videos locales", "Carpetas"),
         SETTINGS("Ajustes", "⚙", "Apariencia", "Información")
-    }
-
-    private enum class Page {
-        ROOT, APPEARANCE, EFFECTS, MOTION, INFO, MEDIA, SONGS, ALBUMS, ARTISTS, GROUP, PLAYER
     }
 
     private val appearanceItems = arrayOf("Fondo animado", "Rendimiento")
@@ -48,29 +46,28 @@ internal class XmbMenuView(
     private val playerRows = listOf("Anterior", "Reproducir", "Siguiente")
     private var libraryState = LibraryState.PERMISSION
     private var library: MusicLibrary? = null
-    private var groupKey: String? = null
-    private var groupParent = Page.ALBUMS
-    private var playerParent = Page.ROOT
     private var playback = Playback()
     private var positionLabel = "0:00"
     private var durationLabel = "0:00"
     private val progressTick = Runnable { refreshPlayback() }
-    private val categorySelections = IntArray(Category.entries.size)
-    private val pageSelections = IntArray(Page.entries.size)
-    private var category = 0
-    private var page = Page.ROOT
+    private val selection = MenuSelection(Category.entries.size)
+    private val category get() = selection.category
+    private val page get() = selection.page
     private var effectIndex = effect.ordinal
     private var motionIndex = motion.ordinal
 
     private val density = resources.displayMetrics.density
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+    private data class FittedText(val width: Float, val size: Float, val bold: Boolean, val text: CharSequence)
+    private val fittedLabels = LruCache<String, FittedText>(64)
     private val white = Color.rgb(239, 248, 250)
     private val muted = Color.rgb(184, 211, 224)
     private val accent = Color.rgb(110, 225, 215)
     private val highlight = 0x40256375
     private var downX = 0f
     private var downY = 0f
+    private var trackingTouch = false
     private var lastCategory = 0f
     private var lastRow = 0f
     private var animationStart = 0L
@@ -114,15 +111,10 @@ internal class XmbMenuView(
     }
 
     private fun rowCount(): Int = if (isLibraryPage()) {
-        when (libraryState) {
-            LibraryState.PERMISSION -> permissionRows.size
-            LibraryState.LOADING -> 0
-            LibraryState.ERROR -> retryRows.size
-            LibraryState.READY -> when (page) {
-                Page.SONGS, Page.GROUP -> songs().size.coerceAtLeast(1)
-                else -> groups(page).size.coerceAtLeast(1)
-            }
-        }
+        libraryState.rows(when (page) {
+            Page.SONGS, Page.GROUP -> songs().size
+            else -> groups(page).size
+        })
     } else when (page) {
         Page.ROOT -> rootItems().size
         Page.APPEARANCE -> appearanceRows.size
@@ -150,16 +142,13 @@ internal class XmbMenuView(
         Page.PLAYER -> when {
             index != 1 -> playerRows[index]
             playback.wantsToPlay -> "Pausar"
-            playback.message?.startsWith("Error de conexión") == true -> "Reintentar"
+            playback.connectionFailed -> "Reintentar"
             else -> playerRows[index]
         }
         else -> ""
     }
 
-    private fun row(): Int {
-        val selected = if (page == Page.ROOT) categorySelections[category] else pageSelections[page.ordinal]
-        return selected.coerceIn(0, (rowCount() - 1).coerceAtLeast(0))
-    }
+    private fun row() = selection.row(rowCount())
 
     fun libraryLoading() {
         if (libraryState != LibraryState.READY) updateLibrary(LibraryState.LOADING)
@@ -168,7 +157,7 @@ internal class XmbMenuView(
     fun updateLibrary(state: LibraryState, result: MusicLibrary? = null) {
         libraryState = state
         library = result
-        currentGroup = groupKey?.let { key -> groups(groupParent).find { it.key == key } }
+        currentGroup = selection.groupKey?.let { key -> groups(selection.groupParent).find { it.key == key } }
         if (isLibraryPage()) {
             describeSelection()
             invalidate()
@@ -180,8 +169,8 @@ internal class XmbMenuView(
         if (!isAttachedToWindow || !isShown || windowVisibility != VISIBLE || page != Page.PLAYER) return
         val next = music.playback()
         if (next != playback) {
-            if (next.position / 1000 != playback.position / 1000) positionLabel = timeLabel(next.position)
-            if (next.duration / 1000 != playback.duration / 1000) durationLabel = timeLabel(next.duration)
+            if (next.position / 1000 != playback.position / 1000) positionLabel = formatPlaybackTime(next.position)
+            if (next.duration / 1000 != playback.duration / 1000) durationLabel = formatPlaybackTime(next.duration)
             val controlChanged = next.wantsToPlay != playback.wantsToPlay ||
                 next.message != playback.message || next.title != playback.title
             playback = next
@@ -201,18 +190,13 @@ internal class XmbMenuView(
         super.onDetachedFromWindow()
     }
 
-    private fun timeLabel(millis: Long): String {
-        val seconds = millis / 1000
-        return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
-    }
-
     private fun title() = when (page) {
         Page.ROOT -> "XMB / LITE"
         Page.APPEARANCE -> "Apariencia"
         Page.EFFECTS -> "Fondo animado"
         Page.MOTION -> "Rendimiento"
         Page.INFO -> "Información"
-        Page.MEDIA -> rootItems().getOrElse(categorySelections[category]) { "Video" }
+        Page.MEDIA -> rootItems().getOrElse(selection.rootRow(rootItems().size)) { "Video" }
         Page.SONGS -> "Canciones"
         Page.ARTISTS -> "Artistas"
         Page.ALBUMS -> "Álbumes"
@@ -224,35 +208,37 @@ internal class XmbMenuView(
         val selected = if (rowCount() == 0) null else rowLabel(row())
         contentDescription = when (page) {
             Page.ROOT -> "${Category.entries[category].title}, $selected"
-            Page.INFO -> "Información. XMB Lite Player. Prototipo 0.1."
+            Page.INFO -> "Información. XMB Lite Player. Versión 0.2."
             Page.MEDIA -> "${title()}. Reproducción local pendiente."
-            else -> "${title()}, $selected"
+            else -> selected?.let { "${title()}, $it" } ?: libraryMessage() ?: title()
         }
     }
 
-    fun saveSelection() = Bundle().apply {
-        putInt("category", category)
-        putInt("page", page.ordinal)
-        putIntArray("categories", categorySelections)
-        putIntArray("rows", pageSelections)
-        putString("groupKey", groupKey)
-        putInt("groupParent", groupParent.ordinal)
-        putInt("playerParent", playerParent.ordinal)
+    fun saveSelection(): Bundle {
+        val state = selection.snapshot()
+        return Bundle().apply {
+            putInt("category", state.category)
+            putInt("page", state.page)
+            putIntArray("categories", state.categories)
+            putIntArray("rows", state.rows)
+            putString("groupKey", state.groupKey)
+            putInt("groupParent", state.groupParent)
+            putInt("playerParent", state.playerParent)
+        }
     }
 
     fun restoreSelection(state: Bundle) {
-        category = state.getInt("category").coerceIn(Category.entries.indices)
-        page = Page.entries.getOrElse(state.getInt("page")) { Page.ROOT }
-        state.getIntArray("categories")?.let { it.copyInto(categorySelections, endIndex = min(it.size, categorySelections.size)) }
-        state.getIntArray("rows")?.let { it.copyInto(pageSelections, endIndex = min(it.size, pageSelections.size)) }
-        groupKey = state.getString("groupKey")
-        groupParent = if (state.getInt("groupParent") == Page.ARTISTS.ordinal) Page.ARTISTS else Page.ALBUMS
-        playerParent = Page.entries.getOrNull(state.getInt("playerParent"))
-            ?.takeIf { it == Page.SONGS || it == Page.GROUP } ?: Page.ROOT
+        selection.restore(MenuSelection.Snapshot(state.getInt("category"), state.getInt("page"),
+            state.getIntArray("categories"), state.getIntArray("rows"), state.getString("groupKey"),
+            state.getInt("groupParent"), state.getInt("playerParent")))
         lastCategory = category.toFloat()
         lastRow = row().toFloat()
         describeSelection()
     }
+
+    fun isPlayerPage() = page == Page.PLAYER
+
+    fun hasParent() = selection.parent() != null
 
     private fun progress(now: Long): Float {
         val t = ((now - animationStart) / 170f).coerceIn(0f, 1f)
@@ -268,7 +254,7 @@ internal class XmbMenuView(
         if (next == category) return
         val now = SystemClock.uptimeMillis()
         lastCategory = categoryPosition(progress(now))
-        category = next
+        selection.category = next
         lastRow = row().toFloat()
         revealRows = true
         animationStart = now
@@ -285,7 +271,7 @@ internal class XmbMenuView(
         val progress = progress(now)
         lastCategory = categoryPosition(progress)
         lastRow = rowPosition(progress)
-        if (page == Page.ROOT) categorySelections[category] = next else pageSelections[page.ordinal] = next
+        selection.selectRow(next)
         revealRows = false
         animationStart = now
         describeSelection()
@@ -293,7 +279,8 @@ internal class XmbMenuView(
     }
 
     private fun showPage(next: Page) {
-        page = next
+        selection.page = next
+        onPageChanged(next)
         refreshPlayback()
         lastCategory = category.toFloat()
         lastRow = row().toFloat()
@@ -315,8 +302,7 @@ internal class XmbMenuView(
                         1 -> Page.ALBUMS
                         2 -> Page.ARTISTS
                         else -> {
-                            playerParent = Page.ROOT
-                            pageSelections[Page.PLAYER.ordinal] = 1
+                            selection.enterPlayer()
                             Page.PLAYER
                         }
                     }
@@ -325,10 +311,10 @@ internal class XmbMenuView(
             }
             Page.APPEARANCE -> {
                 if (row() == 0) {
-                    pageSelections[Page.EFFECTS.ordinal] = effectIndex
+                    selection.selectOn(Page.EFFECTS, effectIndex)
                     showPage(Page.EFFECTS)
                 } else {
-                    pageSelections[Page.MOTION.ordinal] = motionIndex
+                    selection.selectOn(Page.MOTION, motionIndex)
                     showPage(Page.MOTION)
                 }
             }
@@ -342,7 +328,11 @@ internal class XmbMenuView(
                 onMotion(WaveBackgroundView.Motion.entries[motionIndex])
                 showPage(Page.APPEARANCE)
             }
-            Page.PLAYER -> music.transport(Transport.entries[row()])
+            Page.PLAYER -> {
+                val index = row()
+                if (!transportEnabled(index)) return false
+                music.transport(Transport.entries[index])
+            }
             else -> return false
         }
         return true
@@ -358,10 +348,8 @@ internal class XmbMenuView(
                     if (group == null) {
                         music.requestLibrary()
                     } else {
-                        if (groupKey != group.key || groupParent != page) pageSelections[Page.GROUP.ordinal] = 0
+                        selection.enterGroup(group.key)
                         currentGroup = group
-                        groupKey = group.key
-                        groupParent = page
                         showPage(Page.GROUP)
                     }
                 }
@@ -369,9 +357,9 @@ internal class XmbMenuView(
                     val tracks = songs()
                     if (tracks.isEmpty()) {
                         music.requestLibrary()
-                    } else if (music.playSongs(tracks, row())) {
-                        playerParent = page
-                        pageSelections[Page.PLAYER.ordinal] = 1
+                    } else {
+                        music.playSongs(tracks, row())
+                        selection.enterPlayer()
                         showPage(Page.PLAYER)
                     }
                 }
@@ -381,13 +369,7 @@ internal class XmbMenuView(
     }
 
     fun goBack(): Boolean {
-        val parent = when (page) {
-            Page.ROOT -> return false
-            Page.EFFECTS, Page.MOTION -> Page.APPEARANCE
-            Page.PLAYER -> playerParent
-            Page.GROUP -> groupParent
-            else -> Page.ROOT
-        }
+        val parent = selection.parent() ?: return false
         showPage(parent)
         return true
     }
@@ -442,7 +424,7 @@ internal class XmbMenuView(
         when (page) {
             Page.INFO -> {
                 text(canvas, "XMB Lite Player", anchorX, rowY, 17f, white, true)
-                text(canvas, "Reproductor local · Prototipo 0.1", anchorX, rowY + 25f * density, 12f, muted)
+                text(canvas, "Reproductor local · Versión 0.2", anchorX, rowY + 25f * density, 12f, muted)
             }
             Page.MEDIA -> {
                 text(canvas, "Reproducción local pendiente", anchorX, rowY, 15f, muted)
@@ -473,6 +455,12 @@ internal class XmbMenuView(
                 else -> if (library?.songs.isNullOrEmpty()) "No se encontró música local" else null
             }
         }
+    }
+
+    private fun transportEnabled(index: Int) = when (index) {
+        0 -> playback.hasPrevious
+        2 -> playback.hasNext
+        else -> playback.canToggle || playback.connectionFailed
     }
 
     private fun drawPlayer(canvas: Canvas) {
@@ -530,11 +518,7 @@ internal class XmbMenuView(
             }
             val applied = (page == Page.EFFECTS && index == effectIndex) ||
                 (page == Page.MOTION && index == motionIndex)
-            val enabled = page != Page.PLAYER || when (index) {
-                0 -> playback.hasPrevious
-                2 -> playback.hasNext
-                else -> playback.title != null || playback.message?.startsWith("Error de conexión") == true
-            }
+            val enabled = page != Page.PLAYER || transportEnabled(index)
             text(canvas, rowLabel(index), anchorX, y + 5f * density, if (selected) 17f else 14f,
                 if (selected && enabled) white else muted, selected,
                 maxWidth = rowRight - anchorX - (if (applied) 30f else 8f) * density)
@@ -555,18 +539,31 @@ internal class XmbMenuView(
         paint.typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
         paint.textAlign = align
         if (maxWidth <= 0f) return
-        val visible = if (maxWidth.isFinite()) TextUtils.ellipsize(label, paint, maxWidth, TextUtils.TruncateAt.END) else label
+        val visible = if (maxWidth.isFinite()) fittedLabel(label, maxWidth, size, bold) else label
         canvas.drawText(visible, 0, visible.length, x, y, paint)
+    }
+
+    private fun fittedLabel(label: String, width: Float, size: Float, bold: Boolean): CharSequence {
+        val cached = fittedLabels.get(label)
+        if (cached != null && cached.width == width && cached.size == size && cached.bold == bold) {
+            return cached.text
+        }
+        val fitted = TextUtils.ellipsize(label, paint, width, TextUtils.TruncateAt.END)
+        fittedLabels.put(label, FittedText(width, size, bold, fitted))
+        return fitted
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                trackingTouch = true
                 downX = event.x
                 downY = event.y
                 return true
             }
             MotionEvent.ACTION_UP -> {
+                if (!trackingTouch) return true
+                trackingTouch = false
                 val dx = event.x - downX
                 val dy = event.y - downY
                 when {
@@ -578,7 +575,10 @@ internal class XmbMenuView(
                 }
                 return true
             }
-            MotionEvent.ACTION_CANCEL -> return true
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> {
+                trackingTouch = false
+                return true
+            }
         }
         return true
     }

@@ -1,6 +1,15 @@
 package com.santiagocsm.xmblite
 
-internal enum class LibraryState { PERMISSION, LOADING, READY, ERROR }
+internal enum class LibraryState {
+    PERMISSION, LOADING, READY, ERROR;
+
+    fun rows(itemCount: Int): Int = when (this) {
+        PERMISSION, ERROR -> 1
+        LOADING -> 0
+        READY -> itemCount.coerceAtLeast(1)
+    }
+}
+
 
 internal data class Playback(
     val title: String? = null,
@@ -12,6 +21,8 @@ internal data class Playback(
     val canSeek: Boolean = false,
     val hasPrevious: Boolean = false,
     val hasNext: Boolean = false,
+    val canToggle: Boolean = false,
+    val connectionFailed: Boolean = false,
     val message: String? = null
 )
 
@@ -19,8 +30,14 @@ internal enum class Transport { PREVIOUS, TOGGLE, NEXT }
 
 internal interface MusicControls {
     fun requestLibrary()
-    fun playSongs(songs: List<Song>, index: Int): Boolean
+    fun playSongs(songs: List<Song>, index: Int)
     fun transport(command: Transport)
     fun seekTo(position: Long)
     fun playback(): Playback
+}
+
+
+internal fun formatPlaybackTime(millis: Long): String {
+    val seconds = millis.coerceAtLeast(0) / 1000
+    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
 }

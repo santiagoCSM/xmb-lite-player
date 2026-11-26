@@ -1,20 +1,20 @@
 package com.santiagocsm.xmblite
 
 import android.Manifest
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.CancellationSignal
 import android.provider.Settings
-import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.window.OnBackInvokedDispatcher
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -24,8 +24,7 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
 @UnstableApi
-
-internal class MainActivity : Activity(), MusicControls {
+internal class MainActivity : ComponentActivity(), MusicControls {
     private lateinit var menu: XmbMenuView
     private val appearance by lazy { getSharedPreferences("appearance", MODE_PRIVATE) }
 
@@ -34,27 +33,32 @@ internal class MainActivity : Activity(), MusicControls {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private var connectionFailed = false
+    private var started = false
+    private var pendingPlay: PendingPlay? = null
+    private var permissionRequestInFlight = false
+    private val requestAudioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionRequestInFlight = false
+        if (granted || shouldShowRequestPermissionRationale(musicPermission)) {
+            appearance.edit().putBoolean("audio_permission_requested", !granted).apply()
+        }
+        loadLibrary()
+    }
+    private data class PendingPlay(val songs: List<Song>, val index: Int)
+    private val back = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() { menu.goBack() }
+    }
     private val playbackListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             menu.refreshPlayback()
         }
     }
-    private val controllerListener = object : MediaController.Listener {
-        override fun onDisconnected(controller: MediaController) {
-            if (this@MainActivity.controller === controller) {
-                this@MainActivity.controller = null
-                connectionFailed = true
-                menu.refreshPlayback()
-            }
-        }
-    }
-
     private val musicPermission: String
         get() = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO
         else Manifest.permission.READ_EXTERNAL_STORAGE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        permissionRequestInFlight = savedInstanceState?.getBoolean("permissionInFlight") == true
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
@@ -71,6 +75,11 @@ internal class MainActivity : Activity(), MusicControls {
                 ?: WaveBackgroundView.Motion.FLUID
         }
         menu = XmbMenuView(this, background.effect, background.motion, this,
+            onPageChanged = { page ->
+                back.isEnabled = menu.hasParent()
+                if (page == Page.PLAYER && !connectionFailed) connectPlayer()
+                if (page != Page.PLAYER) pendingPlay = null
+            },
             onEffect = { effect ->
                 background.effect = effect
                 appearance.edit().putString("background", effect.id).apply()
@@ -86,30 +95,34 @@ internal class MainActivity : Activity(), MusicControls {
         })
         menu.requestFocus()
 
-        if (Build.VERSION.SDK_INT >= 33) {
-            onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT
-            ) {
-                if (!menu.goBack() && !moveTaskToBack(false)) finish()
-            }
-        }
+        back.isEnabled = menu.hasParent()
+        onBackPressedDispatcher.addCallback(this, back)
     }
 
     override fun onStart() {
         super.onStart()
-        connectPlayer()
+        started = true
+        if (menu.isPlayerPage()) connectPlayer()
         loadLibrary()
     }
 
     override fun onStop() {
-        libraryQuery?.cancel()
+        started = false
+        val query = libraryQuery
         libraryQuery = null
-        controller?.removeListener(playbackListener)
-        controller = null
-        controllerFuture?.let(MediaController::releaseFuture)
-        controllerFuture = null
+        query?.cancel()
+        pendingPlay = null
+        disconnectPlayer()
         menu.refreshPlayback()
         super.onStop()
+    }
+
+    private fun disconnectPlayer() {
+        val future = controllerFuture
+        controllerFuture = null
+        controller?.removeListener(playbackListener)
+        controller = null
+        future?.let(MediaController::releaseFuture)
     }
 
     override fun onDestroy() {
@@ -118,18 +131,38 @@ internal class MainActivity : Activity(), MusicControls {
     }
 
     private fun connectPlayer() {
-        controllerFuture?.let(MediaController::releaseFuture)
+        if (!started || controllerFuture != null) return
         connectionFailed = false
         val token = SessionToken(this, ComponentName(this, MusicService::class.java))
         val future = MediaController.Builder(this, token)
-            .setListener(controllerListener)
+            .setListener(object : MediaController.Listener {
+                override fun onDisconnected(controller: MediaController) {
+                    if (this@MainActivity.controller === controller) {
+                        disconnectPlayer()
+                        connectionFailed = true
+                        menu.refreshPlayback()
+                    }
+                }
+            })
             .buildAsync()
         controllerFuture = future
         future.addListener({
             if (controllerFuture === future) {
                 try {
-                    controller = future.get().also { it.addListener(playbackListener) }
+                    val player = future.get()
+                    if (player.isConnected) {
+                        controller = player
+                        player.addListener(playbackListener)
+                        pendingPlay?.let { playSelection(player, it) }
+                    } else {
+                        disconnectPlayer()
+                        connectionFailed = true
+                    }
                 } catch (_: ExecutionException) {
+                    disconnectPlayer()
+                    connectionFailed = true
+                } catch (_: java.util.concurrent.CancellationException) {
+                    disconnectPlayer()
                     connectionFailed = true
                 }
                 menu.refreshPlayback()
@@ -140,8 +173,10 @@ internal class MainActivity : Activity(), MusicControls {
     private val mainExecutorCompat = java.util.concurrent.Executor { runOnUiThread(it) }
 
     private fun loadLibrary() {
-        libraryQuery?.cancel()
+        if (!started) return
+        val previousQuery = libraryQuery
         libraryQuery = null
+        previousQuery?.cancel()
         if (checkSelfPermission(musicPermission) != PackageManager.PERMISSION_GRANTED) {
             menu.updateLibrary(LibraryState.PERMISSION)
             return
@@ -167,6 +202,7 @@ internal class MainActivity : Activity(), MusicControls {
     }
 
     override fun requestLibrary() {
+        if (permissionRequestInFlight) return
         if (checkSelfPermission(musicPermission) == PackageManager.PERMISSION_GRANTED) {
             loadLibrary()
         } else if (appearance.getBoolean("audio_permission_requested", false) &&
@@ -175,38 +211,35 @@ internal class MainActivity : Activity(), MusicControls {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.fromParts("package", packageName, null)))
         } else {
-            requestPermissions(arrayOf(musicPermission), 1)
+            permissionRequestInFlight = true
+            requestAudioPermission.launch(musicPermission)
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1 && grantResults.isNotEmpty()) {
-            // A granted permission may later be reset by Android, so allow a new request.
-            appearance.edit().putBoolean("audio_permission_requested",
-                grantResults[0] != PackageManager.PERMISSION_GRANTED).apply()
-            loadLibrary()
+    override fun playSongs(songs: List<Song>, index: Int) {
+        val selection = PendingPlay(songs, index)
+        val player = controller
+        if (player == null) {
+            pendingPlay = selection
+            connectPlayer()
+        } else {
+            playSelection(player, selection)
         }
     }
 
-    override fun playSongs(songs: List<Song>, index: Int): Boolean {
-        val player = controller ?: run {
-            if (connectionFailed) connectPlayer()
-            Toast.makeText(this, "Conectando con el reproductor. Intenta de nuevo.",
-                Toast.LENGTH_SHORT).show()
-            return false
-        }
-        player.setMediaItems(songs.map(Song::mediaItem), index, 0L)
+    private fun playSelection(player: MediaController, selection: PendingPlay) {
+        pendingPlay = null
+        player.setMediaItems(selection.songs.map(Song::mediaItem), selection.index, 0L)
         player.prepare()
         player.play()
-        return true
     }
 
     override fun transport(command: Transport) {
         val player = controller ?: run {
-            if (connectionFailed) connectPlayer()
+            if (connectionFailed && command == Transport.TOGGLE) {
+                connectPlayer()
+                menu.refreshPlayback()
+            }
             return
         }
         if (player.mediaItemCount == 0) return
@@ -239,11 +272,15 @@ internal class MainActivity : Activity(), MusicControls {
     }
 
     override fun playback(): Playback {
-        val player = controller ?: return Playback(message = if (connectionFailed)
-            "Error de conexión · pulsa Reintentar" else "Conectando…")
+        val player = controller ?: return Playback(
+            title = pendingPlay?.let { it.songs[it.index].title },
+            connectionFailed = connectionFailed,
+            message = if (connectionFailed) "Error de conexión · pulsa Reintentar" else "Conectando…"
+        )
+        val item = player.currentMediaItem
         return Playback(
-            title = player.mediaMetadata.title?.toString(),
-            artist = player.mediaMetadata.artist?.toString(),
+            title = (item?.mediaMetadata?.title ?: player.mediaMetadata.title)?.toString(),
+            artist = (item?.mediaMetadata?.artist ?: player.mediaMetadata.artist)?.toString(),
             position = player.currentPosition.coerceAtLeast(0L),
             duration = player.duration.coerceAtLeast(0L),
             playing = player.isPlaying,
@@ -251,9 +288,11 @@ internal class MainActivity : Activity(), MusicControls {
                 player.playbackState != Player.STATE_ENDED && player.playbackState != Player.STATE_IDLE,
             canSeek = player.isCurrentMediaItemSeekable,
             hasPrevious = player.hasPreviousMediaItem(),
+            canToggle = player.mediaItemCount > 0,
             hasNext = player.hasNextMediaItem(),
             message = when {
                 player.playerError != null -> "Archivo inaccesible o incompatible"
+                player.playbackState == Player.STATE_ENDED -> "Fin de la cola"
                 player.playbackState == Player.STATE_BUFFERING -> "Cargando…"
                 player.mediaItemCount == 0 -> "Elige una canción de la biblioteca"
                 else -> null
@@ -261,13 +300,9 @@ internal class MainActivity : Activity(), MusicControls {
         )
     }
 
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (!menu.goBack()) super.onBackPressed()
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBundle("menu", menu.saveSelection())
+        outState.putBoolean("permissionInFlight", permissionRequestInFlight)
     }
 }
