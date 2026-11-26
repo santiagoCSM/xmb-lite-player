@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.Shader
 import android.os.Build
 import android.os.SystemClock
+import android.view.Choreographer
 import android.view.View
 import kotlin.math.cos
 import kotlin.math.min
@@ -20,10 +21,24 @@ internal class WaveBackgroundView(context: Context) : View(context) {
         VIOLET("violet", "Onda violeta")
     }
 
+    enum class Motion(val id: String, val label: String) {
+        FLUID("fluid", "Fluido"),
+        SAVER("saver", "Ahorro · aprox. 30 FPS"),
+        STILL("still", "Estático")
+    }
+
     var effect = Effect.BLUE
         set(value) {
             if (field == value) return
             field = value
+            invalidate()
+        }
+
+    var motion = Motion.FLUID
+        set(value) {
+            if (field == value) return
+            field = value
+            updateAnimation()
             invalidate()
         }
 
@@ -37,18 +52,45 @@ internal class WaveBackgroundView(context: Context) : View(context) {
         baseline = 0.652f, amplitude = 0.024f, depth = 1f, highlight = 0x5A9CEFFF
     )
     private val violet = VioletWave()
-    private var visibleSince = 0L
+    private var visible = false
+    private var activeSince = 0L
     private var elapsed = 0L
+    private val choreographer = Choreographer.getInstance()
+    private val frame = Choreographer.FrameCallback {
+        invalidate()
+        scheduleFrame()
+    }
 
     override fun onVisibilityAggregated(isVisible: Boolean) {
         super.onVisibilityAggregated(isVisible)
-        if (isVisible && visibleSince == 0L) {
-            visibleSince = SystemClock.uptimeMillis()
-            postInvalidateOnAnimation()
-        } else if (!isVisible && visibleSince != 0L) {
-            elapsed += SystemClock.uptimeMillis() - visibleSince
-            visibleSince = 0L
+        visible = isVisible
+        updateAnimation()
+    }
+
+    private fun updateAnimation() {
+        choreographer.removeFrameCallback(frame)
+        if (visible && motion != Motion.STILL) {
+            if (activeSince == 0L) activeSince = SystemClock.uptimeMillis()
+            invalidate()
+            scheduleFrame()
+        } else if (activeSince != 0L) {
+            elapsed += SystemClock.uptimeMillis() - activeSince
+            activeSince = 0L
         }
+    }
+
+    private fun scheduleFrame() {
+        // Choreographer aligns the delayed callback with the next refresh.
+        val delay = if (motion == Motion.SAVER) 28L else 0L
+        choreographer.postFrameCallbackDelayed(frame, delay)
+    }
+
+    override fun onDetachedFromWindow() {
+        if (visible) {
+            visible = false
+            updateAnimation()
+        }
+        super.onDetachedFromWindow()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -65,7 +107,7 @@ internal class WaveBackgroundView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        val active = if (visibleSince == 0L) 0L else SystemClock.uptimeMillis() - visibleSince
+        val active = if (activeSince == 0L) 0L else SystemClock.uptimeMillis() - activeSince
         val time = (elapsed + active) / 1000.0
         when (effect) {
             Effect.BLUE -> {
@@ -76,7 +118,6 @@ internal class WaveBackgroundView(context: Context) : View(context) {
             }
             Effect.VIOLET -> violet.draw(canvas, time)
         }
-        if (visibleSince != 0L) postInvalidateOnAnimation()
     }
 
     private class Ribbon(

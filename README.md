@@ -8,16 +8,18 @@ Reproductor multimedia nativo ultraligero para Android, con un diseño original 
 
 Elige el fondo en **Ajustes → Apariencia → Fondo animado**. Capturas tomadas en un Redmi 9T.
 
+En **Ajustes → Apariencia → Rendimiento** puedes elegir entre **Fluido**, **Ahorro** (aprox. 30 FPS) y **Estático**. El ajuste se guarda y se aplica solo al fondo. La navegación mantiene su propia animación.
+
 | Ondas azules | Onda violeta |
 | --- | --- |
 | <img src="docs/capturas/ondas-azules.png" alt="Menú XMB con el fondo Ondas azules" width="240"> | <img src="docs/capturas/onda-violeta.png" alt="Menú XMB con el fondo Onda violeta" width="240"> |
 
 ## Plataforma objetivo
 
-- Android 16, API 36; pruebas previstas en Redmi 9T ARM64 con crDroid.
+- Android 16, API 36. Pruebas de renderizado en Redmi 9T ARM64 con crDroid.
 - Kotlin + Android View y Canvas: sin Compose, AppCompat ni motor gráfico externo.
 - Sin anuncios, telemetría, red ni permisos de almacenamiento en el prototipo.
-- Objetivos pendientes de medir: animaciones a 60 FPS, bajo consumo y APK menor a 5 MB.
+- En una prueba corta en el Redmi 9T, los fondos alcanzaron 60 FPS en Fluido y unos 30 FPS en Ahorro. En Estático se detuvo el renderizado continuo. El APK de depuración ocupa menos de 1 MB.
 
 ## Compilar en Linux Mint sin Android Studio
 
@@ -40,12 +42,13 @@ El plugin Android es AGP 8.13.2, con Kotlin 2.2.20. La primera compilación nece
 
 - Deslizar **izquierda/derecha**: cambiar categoría.
 - Deslizar **arriba/abajo**: recorrer las opciones.
-- Compatible también con las teclas D-pad.
-- Tocar **Apariencia** o pulsar **Enter** con esa opción seleccionada abre el selector de fondos.
+- D-pad o flechas para recorrer el menú. **Enter**, **D-pad central** o **A** del mando para confirmar.
+- Toca una categoría o una fila para seleccionarla. Toca la fila seleccionada para abrirla.
+- Usa **Atrás**, **Escape** o **B** del mando para regresar al nivel anterior y recuperar su selección.
 
 ## Estructura
 
-- `app/src/main/java/com/santiagocsm/xmblite/MainActivity.kt`: menú XMB en Canvas.
+- `app/src/main/java/com/santiagocsm/xmblite/XmbMenuView.kt`: menú XMB en Canvas.
 - `app/src/main/AndroidManifest.xml`: configuración de Android.
 - `app/build.gradle.kts`: versión de SDK y compilación.
 - `scripts/gradle.sh`: arranque de Gradle desde terminal.
@@ -53,7 +56,7 @@ El plugin Android es AGP 8.13.2, con Kotlin 2.2.20. La primera compilación nece
 
 ## Siguientes hitos
 
-1. Verificar el primer APK en Android 16; medir memoria, arranque, FPS y tamaño real.
+1. Medir el arranque y el consumo de batería en pruebas prolongadas.
 2. Descubrir música local con MediaStore y permisos apropiados.
 3. Incorporar reproducción en segundo plano, controles multimedia y Media3.
 4. Agregar reproducción de video y optimizaciones basadas en mediciones.

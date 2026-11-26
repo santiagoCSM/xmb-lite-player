@@ -14,14 +14,15 @@ internal class VioletWave {
     private companion object {
         const val SEGMENTS = 40
         const val BACKDROP = 0xff5320c0.toInt()
+        const val CYCLES_ACROSS_WIDTH = 0.72
+        const val PERIOD_SECONDS = 12.5
+        const val AMPLITUDE = 0.023f
     }
 
     private val vertices = FloatArray((SEGMENTS + 1) * 4)
     private val colors = IntArray((SEGMENTS + 1) * 2)
     private val waveCos = FloatArray(SEGMENTS + 1)
     private val waveSin = FloatArray(SEGMENTS + 1)
-    private val detailCos = FloatArray(SEGMENTS + 1)
-    private val detailSin = FloatArray(SEGMENTS + 1)
     private val meshPaint = Paint()
     private val fallbackPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fallbackPath = Path()
@@ -33,11 +34,9 @@ internal class VioletWave {
         height = h
         for (column in 0..SEGMENTS) {
             val u = column.toFloat() / SEGMENTS
-            val angle = 2 * Math.PI * u
+            val angle = 2 * Math.PI * CYCLES_ACROSS_WIDTH * u
             waveCos[column] = cos(angle).toFloat()
             waveSin[column] = sin(angle).toFloat()
-            detailCos[column] = cos(2 * angle).toFloat()
-            detailSin[column] = sin(2 * angle).toFloat()
             val offset = column * 4
             vertices[offset] = w * u
             vertices[offset + 2] = w * u
@@ -51,20 +50,16 @@ internal class VioletWave {
     }
 
     fun draw(canvas: Canvas, time: Double) {
-        val phase = time * 0.72 + 2.2 + 0.42 * sin(time * 0.31)
-        val detailPhase = phase * 2 - 0.65 + 0.52 * sin(time * 0.46)
+        val phase = 2 * Math.PI * time / PERIOD_SECONDS + 2.2
         val phaseCos = cos(phase).toFloat()
         val phaseSin = sin(phase).toFloat()
-        val secondaryCos = cos(detailPhase).toFloat()
-        val secondarySin = sin(detailPhase).toFloat()
-        val base = height * (0.55f + 0.015f * sin(time * 0.43).toFloat())
-        val amplitude = height * (0.030f + 0.019f * sin(time * 0.51 + 0.7).toFloat())
+        val base = height * 0.55f
+        val amplitude = height * AMPLITUDE
 
-        // A broad travelling crest with a mild asymmetric shoulder and a varying height.
         for (column in 0..SEGMENTS) {
-            val crest = waveCos[column] * phaseCos + waveSin[column] * phaseSin
-            val shoulder = detailCos[column] * secondaryCos + detailSin[column] * secondarySin
-            vertices[column * 4 + 1] = base - amplitude * (crest + 0.15f * shoulder)
+            // Expand sin(kx - phase) using the precomputed spatial samples.
+            val wave = waveSin[column] * phaseCos - waveCos[column] * phaseSin
+            vertices[column * 4 + 1] = base + amplitude * wave
         }
 
         canvas.drawColor(BACKDROP)
