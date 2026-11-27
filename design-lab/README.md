@@ -40,3 +40,15 @@ Los vectores se leen **directamente de** `app/src/main/res/drawable/ic_xmb_*.xml
 ## Limitaciones de esta primera versión
 
 La forma y animación exacta de los fondos siguen siendo responsabilidad de `WaveBackgroundView`; aquí se representan con SVG y degradados estáticos de aproximación. Los textos también pueden variar entre las fuentes de Android y del navegador. Las capturas originales de la izquierda son la referencia visual; la aplicación Android sigue siendo la referencia funcional.
+
+## Despliegue en GitHub Pages
+
+El workflow [`Deploy XMB Design Lab`](../.github/workflows/design-lab-pages.yml) publica únicamente el editor y los recursos visuales que necesita (capturas, iconos XML y documentación de iconografía). **No publica el código fuente Kotlin ni APKs**, y no participa en la compilación Android.
+
+Se ejecuta automáticamente cuando cambian el laboratorio, sus capturas, iconos o el propio workflow; también admite **Run workflow** desde GitHub Actions.
+
+Para habilitarlo por primera vez: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Después consulta la ejecución de `Deploy XMB Design Lab` en **Actions**. Cuando GitHub Pages termine de desplegar, la URL prevista es:
+
+https://santiagocsm.github.io/xmb-lite-player/
+
+La ruta `/design-lab/` también funciona directamente. El resultado público depende de que GitHub Pages esté habilitado y de que el workflow se complete correctamente.
