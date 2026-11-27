@@ -32,3 +32,17 @@
 .original-frame{position:relative}
 .reference-note{position:absolute;bottom:0;left:0;right:0;max-height:45%;overflow:auto;padding:14px 16px 16px;background:linear-gradient(0deg,rgba(6,14,24,.96),rgba(6,14,24,.79));border-top:1px solid #ffffff2e;color:#eef6fa;line-height:1.5;font-size:12px}
 @media(max-width:600px){.scene-switches{width:100%}.switch-group{flex:1;justify-content:center}.switch-group button{flex:1;min-height:38px;padding:8px 7px;font-size:11px}.reference-note{font-size:10px;padding:10px}}
+
+/* Source-editable CSS background: no raster or screenshot in the right preview. */
+.wallpaper{overflow:hidden;isolation:isolate}
+.wallpaper>svg{display:none}
+.wave-ribbon{position:absolute;left:-30%;width:160%;height:230px;border-radius:48% 52% 0 0;pointer-events:none;transform-origin:center;opacity:.52}
+.wave-one{top:59%;transform:rotate(-8deg);background:linear-gradient(180deg,rgba(127,231,255,.4),rgba(27,166,212,.19) 55%,transparent);border-top:2px solid rgba(160,239,255,.5)}
+.wave-two{top:65%;transform:rotate(11deg);background:linear-gradient(180deg,rgba(17,188,223,.42),rgba(5,118,183,.18) 65%,transparent);border-top:1px solid rgba(168,239,255,.3)}
+.wave-three{top:71%;transform:rotate(-4deg);height:390px;background:linear-gradient(180deg,rgba(95,198,233,.14),rgba(3,96,164,.3) 70%,transparent)}
+.preview.violet .wave-one{background:linear-gradient(180deg,rgba(255,163,253,.44),rgba(197,77,239,.2),transparent);border-top-color:rgba(255,209,255,.5)}
+.preview.violet .wave-two{background:linear-gradient(180deg,rgba(223,108,255,.42),rgba(154,38,220,.2),transparent);border-top-color:rgba(255,205,255,.5)}
+.preview.violet .wave-three{background:linear-gradient(180deg,rgba(245,127,255,.22),rgba(139,29,202,.35),transparent)}
+.gesture-caption{text-align:center;color:#87949f;font-size:11px;line-height:1.5;margin:13px 0 0}
+.preview-viewport{touch-action:none;cursor:grab}
+.preview-viewport:active{cursor:grabbing}
