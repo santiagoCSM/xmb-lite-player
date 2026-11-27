@@ -1,7 +1,5 @@
 "use strict";
-
-// Browser-only visual lab. The Android renderer remains the source of truth.
-// Coordinates use the 540 × 1170 reference screenshot as their design space.
+// The LLM edits DEFAULTS and SCREENS in source control; visitors review, not configure.
 const W = 540, H = 1170, STORE = "xmb-design-lab-v1";
 const ASSET = "../app/src/main/res/drawable/ic_xmb_";
 const ICONS = {
@@ -41,49 +39,9 @@ const DEFAULTS = {
   card:{x:20,y:key==="player"||key==="error"?347:89,scale:1}
  }]))
 };
-let model = deepCopy(DEFAULTS);
-let currentScreen = "music", theme = "blue", playing = false, selected = "rows";
-let undoStack = [], dragging = null, viewportScale = 1;
-const $ = id => document.getElementById(id);
-const deepCopy = value => JSON.parse(JSON.stringify(value));
-const clamp = (v,min,max) => Math.min(max,Math.max(min,v));
-function remember(){undoStack.push(deepCopy(model));if(undoStack.length>60)undoStack.shift();}
-function persist(){try{localStorage.setItem(STORE,JSON.stringify(model));}catch{}}
-function validNumber(n,min,max,fallback){return Number.isFinite(n)?clamp(n,min,max):fallback;}
-function validate(raw){
- if(!raw||typeof raw!=="object")throw Error("Archivo inválido");
- const candidate=raw.layout||raw;
- const clean=deepCopy(DEFAULTS);
- clean.focus=validNumber(Number(candidate.focus),.06,.45,DEFAULTS.focus);
- clean.rowGap=validNumber(Number(candidate.rowGap),55,140,DEFAULTS.rowGap);
- for(const key of Object.keys(SCREENS)){
-  const input=candidate.layouts?.[key];
-  if(!input)continue;
-  for(const el of Object.keys(clean.layouts[key])){
-   const next=input[el]||{};
-   const prior=clean.layouts[key][el];
-   prior.x=validNumber(Number(next.x),-180,680,prior.x);
-   prior.y=validNumber(Number(next.y),-100,1250,prior.y);
-   prior.scale=validNumber(Number(next.scale),.6,1.6,prior.scale);
-  }
- }
- return clean;
-}
-try {const stored=localStorage.getItem(STORE);if(stored)model=validate(JSON.parse(stored));}catch{}
 
-const screenControl=$("screen");
-for(const [id,item] of Object.entries(SCREENS)){
- const opt=document.createElement("option");opt.value=id;opt.textContent=item.label;screenControl.append(opt);
-}
-function sourceImage(){
- if(currentScreen==="music"&&theme==="violet"&&!playing)return "musica-violeta.webp";
- if(playing){
-  if(currentScreen==="music")return "tarjeta-en-inicio.webp";
-  if(currentScreen==="appearance"||currentScreen==="settings")return "tarjeta-en-ajustes.webp";
-  if(currentScreen==="group"||currentScreen==="songs"||currentScreen==="albums"||currentScreen==="artists")return "tarjeta-en-biblioteca.webp";
- }
- return SCREENS[currentScreen].photo;
-}
+const model=structuredClone(DEFAULTS);
+let currentScreen="music",theme="blue",playing=false;
 function iconSVG(key){
  const file=ICONS[key];
  if(!file)return "";
@@ -120,24 +78,14 @@ function sections(){
  return ["back","heading","rows",...(playing?["card"]:[])];
 }
 function layerName(name){return ({categories:"Categorías",heading:"Título",back:"Atrás",rows:"Lista",card:"Reproductor"})[name];}
-function renderLayers(){
- $("layers").replaceChildren();
- for(const name of sections()){
-  const btn=document.createElement("button");
-  btn.type="button";btn.className="layer"+(selected===name?" active":"");
-  btn.textContent=layerName(name);
-  btn.addEventListener("click",()=>{selected=name;renderLayers();renderStage();syncControls();});
-  $("layers").append(btn);
- }
-}
+
 function comp(name,html,klass=""){
  const cfg=model.layouts[currentScreen][name];
  const el=document.createElement("div");
- el.className="component "+klass+(selected===name?" selected":"");
+ el.className="component "+klass;
  el.dataset.layer=name;
  el.style.left=cfg.x+"px";el.style.top=cfg.y+"px";el.style.transform="scale("+cfg.scale+")";
  el.innerHTML=html;
- el.addEventListener("pointerdown",startDrag);
  return el;
 }
 function renderStage(){
@@ -172,72 +120,68 @@ function renderStage(){
  }
 }
 function escapeHTML(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
-function renderReference(){$("reference").src="../docs/capturas-ui/"+sourceImage();}
-function syncControls(){
- if(!sections().includes(selected))selected=sections()[0];
- const v=model.layouts[currentScreen][selected];
- const sliders={x:v.x,y:v.y,scale:v.scale,rowGap:model.rowGap,focus:model.focus};
- for(const [name,val] of Object.entries(sliders)){$(name).value=val;$(name+"Out").textContent=name==="scale"?val.toFixed(2)+"×":name==="focus"?Math.round(val*100)+"%":Math.round(val)+(name==="rowGap"?" px":"");}
+
+function escapeHTML(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
+
+function sourceImage(){
+ const page=SCREENS[currentScreen];
+ if(currentScreen==="music"&&theme==="violet"&&!playing)return "musica-violeta.webp";
+ if(playing){
+  if(currentScreen==="music")return "tarjeta-en-inicio.webp";
+  if(currentScreen==="settings"||currentScreen==="appearance")return "tarjeta-en-ajustes.webp";
+  if(["songs","albums","artists","group"].includes(currentScreen))return "tarjeta-en-biblioteca.webp";
+ }
+ return page.photo;
 }
-function draw(){renderReference();renderLayers();renderStage();syncControls();}
-function fitPreview(){
- const viewport=$("preview-viewport");
- viewportScale=viewport.clientWidth/W;
- $("preview").style.transform="scale("+viewportScale+")";
-}
-function startDrag(event){
- if(event.button!==0)return;
- const name=event.currentTarget.dataset.layer;
- selected=name;renderLayers();syncControls();
- document.querySelectorAll(".component").forEach(el=>el.classList.toggle("selected",el.dataset.layer===name));
- const cfg=model.layouts[currentScreen][name];
- remember();
- dragging={name,x:event.clientX,y:event.clientY,startX:cfg.x,startY:cfg.y};
- event.currentTarget.setPointerCapture(event.pointerId);
- event.currentTarget.addEventListener("pointermove",moveDrag);
- event.currentTarget.addEventListener("pointerup",endDrag,{once:true});
- event.currentTarget.addEventListener("pointercancel",endDrag,{once:true});
-}
-function moveDrag(event){
- if(!dragging)return;
- const cfg=model.layouts[currentScreen][dragging.name];
- cfg.x=clamp(Math.round(dragging.startX+(event.clientX-dragging.x)/viewportScale),-180,680);
- cfg.y=clamp(Math.round(dragging.startY+(event.clientY-dragging.y)/viewportScale),-100,1250);
- const node=event.currentTarget;
- node.style.left=cfg.x+"px";node.style.top=cfg.y+"px";
- syncControls();
-}
-function endDrag(event){
- event.currentTarget.removeEventListener("pointermove",moveDrag);
- dragging=null;persist();renderStage();
-}
-screenControl.addEventListener("change",e=>{currentScreen=e.target.value;selected="rows";draw();});
-$("theme").addEventListener("change",e=>{theme=e.target.value;renderReference();renderStage();});
-$("playing").addEventListener("change",e=>{playing=e.target.value==="on";draw();});
-for(const name of ["x","y","scale","rowGap","focus"]){
- $(name).addEventListener("pointerdown",()=>remember());
- $(name).addEventListener("change",()=>persist());
- $(name).addEventListener("input",e=>{
-  const value=Number(e.target.value);
-  if(name==="focus"||name==="rowGap")model[name]=value;
-  else model.layouts[currentScreen][selected][name]=value;
-  renderStage();syncControls();persist();
+function refresh(){
+ const page=SCREENS[currentScreen];
+ document.getElementById("page-name").textContent=page.label;
+ document.getElementById("reference").src="../docs/capturas-ui/"+sourceImage();
+ renderStage();
+ document.querySelectorAll("[data-screen]").forEach(el=>{
+  const active=el.dataset.screen===currentScreen;
+  el.classList.toggle("active",active);
+  if(active)el.setAttribute("aria-current","page");else el.removeAttribute("aria-current");
+ });
+ document.querySelectorAll("[data-theme]").forEach(el=>{
+  const active=el.dataset.theme===theme;
+  el.classList.toggle("active",active);el.setAttribute("aria-pressed",String(active));
+ });
+ document.querySelectorAll("[data-playing]").forEach(el=>{
+  const active=(el.dataset.playing==="on")===playing;
+  el.classList.toggle("active",active);el.setAttribute("aria-pressed",String(active));
  });
 }
-$("undo").addEventListener("click",()=>{if(!undoStack.length)return;model=undoStack.pop();persist();draw();});
-$("reset").addEventListener("click",()=>{if(!confirm("¿Restablecer todos los ajustes del laboratorio?"))return;remember();model=deepCopy(DEFAULTS);persist();draw();});
-$("export").addEventListener("click",()=>{
- const payload={format:"xmb-lite-design-lab",version:1,reference:{width:W,height:H},notes:"Referencia visual: no aplicar automáticamente en Kotlin sin validar dimensiones/dp y recortes.",layout:model,normalized:Object.fromEntries(Object.entries(model.layouts).map(([key,positions])=>[key,Object.fromEntries(Object.entries(positions).map(([name,v])=>[name,{x:+(v.x/W).toFixed(5),y:+(v.y/H).toFixed(5),scale:v.scale}]))]))};
- const data=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
- const url=URL.createObjectURL(data);const a=document.createElement("a");
- a.href=url;a.download="xmb-layout-v1.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-});
-$("import").addEventListener("click",()=>$("file").click());
-$("file").addEventListener("change",async e=>{
- const file=e.target.files[0];if(!file)return;
- try{if(file.size>200000)throw Error("JSON demasiado grande");const read=JSON.parse(await file.text());remember();model=validate(read);persist();draw();}
- catch(err){alert("No se pudo importar: "+err.message);}
- e.target.value="";
-});
-new ResizeObserver(fitPreview).observe($("preview-viewport"));
-draw();fitPreview();
+function navigation(){
+ const nav=document.getElementById("screen-list");
+ let lastGroup="";
+ for(const [key,item] of Object.entries(SCREENS)){
+  const group=key==="music"||key==="video"||key==="settings"?"Inicio":
+   ["songs","albums","artists","group"].includes(key)?"Biblioteca":
+   ["appearance","effects","motion","info"].includes(key)?"Ajustes":
+   ["player"].includes(key)?"Reproductor":"Estados";
+  if(group!==lastGroup){
+   const label=document.createElement("div");
+   label.className="screen-group-label";label.textContent=group;nav.append(label);
+   lastGroup=group;
+  }
+  const button=document.createElement("button");
+  button.type="button";button.dataset.screen=key;
+  button.textContent=item.label.replace(/^.*? · /,"");
+  button.addEventListener("click",()=>{currentScreen=key;refresh();});
+  nav.append(button);
+ }
+}
+for(const button of document.querySelectorAll("[data-theme]"))
+ button.addEventListener("click",()=>{theme=button.dataset.theme;refresh();});
+for(const button of document.querySelectorAll("[data-playing]"))
+ button.addEventListener("click",()=>{playing=button.dataset.playing==="on";refresh();});
+function fitPreview(){
+ const viewport=document.getElementById("preview-viewport");
+ const scale=viewport.clientWidth/W;
+ document.getElementById("preview").style.transform="scale("+scale+")";
+}
+navigation();
+refresh();
+new ResizeObserver(fitPreview).observe(document.getElementById("preview-viewport"));
+fitPreview();
