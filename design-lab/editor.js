@@ -122,38 +122,43 @@ function renderStage(){
 }
 function escapeHTML(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
 
-// Only show an original when the exact screen/state was captured on the Redmi.
-// Never silently substitute a capture of a different screen or background.
+// Captures remain the reference, even when the web concept displays an
+// unrecorded combination of theme and mini-player. No screenshot is fabricated.
 const CAPTURES = {
- music:{blue:{off:"musica-azul.webp",on:"tarjeta-en-inicio.webp"},violet:{off:"musica-violeta.webp"}},
- video:{blue:{off:"video.webp"}},
- settings:{blue:{off:"ajustes.webp",on:"tarjeta-en-ajustes.webp"}},
- songs:{blue:{off:"canciones.webp"}},
- albums:{blue:{off:"albumes.webp"}},
- artists:{blue:{off:"artistas.webp"}},
- group:{blue:{off:"canciones-del-album.webp",on:"tarjeta-en-biblioteca.webp"}},
- appearance:{blue:{off:"apariencia.webp"}},
- effects:{blue:{off:"selector-de-fondo.webp"}},
- motion:{blue:{off:"rendimiento-ahorro.webp"}},
- info:{blue:{off:"informacion.webp"}},
- player:{blue:{off:"reproduciendo.webp"}},
- permission:{blue:{off:"acceso-a-musica.webp"}},
- error:{blue:{off:"archivo-incompatible.webp"}}
+ music: {base:"musica-azul.webp", blue:{off:"musica-azul.webp",on:"tarjeta-en-inicio.webp"},violet:{off:"musica-violeta.webp"}},
+ video: {base:"video.webp"},
+ settings: {base:"ajustes.webp",blue:{on:"tarjeta-en-ajustes.webp"}},
+ songs: {base:"canciones.webp"},
+ albums: {base:"albumes.webp"},
+ artists: {base:"artistas.webp"},
+ group: {base:"canciones-del-album.webp",blue:{on:"tarjeta-en-biblioteca.webp"}},
+ appearance: {base:"apariencia.webp"},
+ effects: {base:"selector-de-fondo.webp"},
+ motion: {base:"rendimiento-ahorro.webp"},
+ info: {base:"informacion.webp"},
+ player: {base:"reproduciendo.webp"},
+ permission: {base:"acceso-a-musica.webp"},
+ error: {base:"archivo-incompatible.webp"}
 };
-function showPlaybackCard(){return playing || currentScreen==="player" || currentScreen==="error";}
+function showPlaybackCard(){
+ return playing || currentScreen==="player" || currentScreen==="error";
+}
 function sourceImage(){
- return CAPTURES[currentScreen]?.[theme]?.[showPlaybackCard()?"on":"off"] || null;
+ const entry=CAPTURES[currentScreen];
+ const state=showPlaybackCard()?"on":"off";
+ const exact=entry[theme]?.[state];
+ return {file:exact||entry.base, exact:Boolean(exact)};
 }
 function refresh(){
  const page=SCREENS[currentScreen];
- document.getElementById("page-name").textContent=page.label;
- const photo=sourceImage();
+ $("page-name").textContent=page.label;
+ const image=sourceImage();
  const reference=$("reference");
- const empty=$("reference-empty");
- reference.hidden=!photo;
- empty.hidden=!!photo;
- if(photo){reference.src="../docs/capturas-ui/"+photo;reference.alt="Captura real: "+page.label+" · "+theme+" · "+(showPlaybackCard()?"con":"sin")+" tarjeta";}
- else{reference.removeAttribute("src");empty.textContent="Aún no hay una captura exacta de este estado en el Redmi. La propuesta web de la derecha sí permite revisarlo.";}
+ const note=$("reference-note");
+ reference.src="../docs/capturas-ui/"+image.file;
+ reference.alt=(image.exact?"Captura exacta":"Captura base de referencia")+" del Redmi 9T: "+page.label;
+ note.hidden=image.exact;
+ note.textContent=image.exact?"":"La captura original corresponde al estado base. Los cambios de fondo y tarjeta se muestran en la propuesta web.";
  renderStage();
  document.querySelectorAll("[data-screen]").forEach(el=>{
   const active=el.dataset.screen===currentScreen;
@@ -162,14 +167,16 @@ function refresh(){
  });
  document.querySelectorAll("[data-theme]").forEach(el=>{
   const active=el.dataset.theme===theme;
-  el.classList.toggle("active",active);el.setAttribute("aria-pressed",String(active));
+  el.classList.toggle("active",active);
+  el.setAttribute("aria-pressed",String(active));
  });
  document.querySelectorAll("[data-playing]").forEach(el=>{
-  const active=(el.dataset.playing==="on")===showPlaybackCard();
-  el.classList.toggle("active",active);el.setAttribute("aria-pressed",String(active));
   const locked=currentScreen==="player"||currentScreen==="error";
+  const active=(el.dataset.playing==="on")===showPlaybackCard();
+  el.classList.toggle("active",active);
+  el.setAttribute("aria-pressed",String(active));
   el.disabled=locked;
-  el.title=locked?"Esta pantalla siempre presenta la tarjeta del reproductor":"";
+  el.title=locked?"En esta pantalla la tarjeta es parte del reproductor":"";
  });
 }
 function navigation(){
