@@ -17,7 +17,7 @@ Abre http://localhost:8000/design-lab/ o el despliegue de GitHub Pages: https://
 - Elige una pantalla en la navegación lateral.
 - A la izquierda verás la **captura original** tomada del Redmi 9T y guardada en `docs/capturas-ui/`.
 - A la derecha verás una **aproximación web** del mismo diseño.
-- Puedes alternar **Azul/Violeta** y **Sin tarjeta/Con tarjeta** para revisar estados independientes. **No son configuraciones de diseño**. La vista de la derecha se actualiza en ambos casos; a la izquierda se muestra una captura real únicamente cuando existe una captura correspondiente a esa combinación. Si falta, aparece un aviso en lugar de presentar una imagen incorrecta. En las páginas de reproducción/error la tarjeta es parte obligatoria de la pantalla y esos botones quedan deshabilitados.
+- Puedes alternar **Azul/Violeta** y **Sin tarjeta/Con tarjeta** para revisar estados independientes. **No son configuraciones de diseño**. La vista de la derecha se actualiza en ambos casos; a la izquierda se muestra una captura real únicamente cuando existe una captura correspondiente a esa combinación. Si falta, se conserva la captura base como referencia, con un aviso visible que aclara que esa combinación no se fotografió. La propuesta web sí aplica los controles. En las páginas de reproducción/error la tarjeta es parte obligatoria de la pantalla y esos botones quedan deshabilitados.
 - No existen controles de posición, escala, opacidad, importación/exportación ni modificaciones desde el navegador.
 
 ## Primera iteración visual
@@ -43,3 +43,9 @@ Las capturas de listas pueden ocultar nombres privados. Los ejemplos web usan t�
 ## Despliegue
 
 El workflow [`Deploy XMB Design Lab`](../.github/workflows/design-lab-pages.yml) publica solo el laboratorio y las dependencias visuales que necesita: capturas, vectores y documentación. No publica APKs, Kotlin ni el resto del proyecto Android. Se activa al actualizar el laboratorio o esos recursos, y puede ejecutarse manualmente desde GitHub Actions.
+
+## Comprobación de interacción
+
+Ejecuta `node --test design-lab/smoke.test.cjs` para validar que la navegación funciona, que Azul/Violeta cambia el fondo de la propuesta, que Con/Sin tarjeta añade y retira la tarjeta, que las capturas de referencia permanecen visibles y que las vistas de reproducción bloquean controles incompatibles.
+
+El workflow de Pages ejecuta las pruebas antes de publicar; si fallan, el despliegue no se realiza.
