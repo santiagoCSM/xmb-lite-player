@@ -108,3 +108,33 @@ test("full player always has its card and locks card controls",()=>{
  x.navigate("music");
  assert.ok(x.buttons.filter(b=>b.dataset.playing).every(b=>!b.disabled));
 });
+
+test("swipe left returns from subpage and keeps root carousel",()=>{
+ const x=fixture();
+ const surface=x.all.get("preview-viewport");
+ const swipe=(dx,dy=0)=>{
+  surface.on_pointerdown({isPrimary:true,clientX:200,clientY:250,pointerId:1});
+  surface.on_pointerup({clientX:200+dx,clientY:250+dy});
+ };
+ x.navigate("appearance");
+ assert.equal(x.all.get("page-name").textContent,"Ajustes · Apariencia");
+ swipe(-110);
+ assert.equal(x.all.get("page-name").textContent,"Inicio · Ajustes");
+ swipe(-110);
+ assert.equal(x.all.get("page-name").textContent,"Inicio · Ajustes");
+ swipe(110);
+ assert.equal(x.all.get("page-name").textContent,"Inicio · Video");
+});
+test("vertical swipe changes focus without changing screens",()=>{
+ const x=fixture();
+ const surface=x.all.get("preview-viewport");
+ const swipe=dy=>{
+  surface.on_pointerdown({isPrimary:true,clientX:260,clientY:400,pointerId:1});
+  surface.on_pointerup({clientX:260,clientY:400+dy});
+ };
+ const before=x.all.get("stage").children.find(c=>c.dataset.layer==="rows").innerHTML;
+ swipe(-80);
+ const after=x.all.get("stage").children.find(c=>c.dataset.layer==="rows").innerHTML;
+ assert.notEqual(before,after);
+ assert.equal(x.all.get("page-name").textContent,"Inicio · Música");
+});
