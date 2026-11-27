@@ -24,7 +24,7 @@
   <section class="content" aria-label="Comparación de diseño">
     <div class="page-header">
       <div><p class="eyebrow">VISTA ACTUAL</p><h2 id="page-name">Inicio · Música</h2></div>
-      <div class="scene-switches" aria-label="Variaciones de la vista">
+      <div class="scene-switches" aria-label="Estados para comparar">
         <div class="switch-group" role="group" aria-label="Fondo">
           <button type="button" data-theme="blue" class="active" aria-pressed="true">Azul</button>
           <button type="button" data-theme="violet" aria-pressed="false">Violeta</button>
@@ -38,17 +38,17 @@
     <div class="comparison">
       <div class="view">
         <div class="view-label"><span>01</span> Original <small>captura del Redmi 9T</small></div>
-        <div class="phone"><div class="original-frame"><img id="reference" alt="Captura original de XMB Lite" src="../docs/capturas-ui/musica-azul.webp"><div id="reference-empty" class="reference-empty" role="status" hidden><span>Sin captura para este estado</span></div></div></div>
+        <div class="phone"><div class="original-frame"><img id="reference" alt="Captura original de XMB Lite" src="../docs/capturas-ui/musica-azul.webp"><div class="reference-note" id="reference-note" role="status" hidden></div></div></div>
       </div>
       <div class="view">
-        <div class="view-label"><span>02</span> Propuesta web <small>vista de referencia</small></div>
+        <div class="view-label"><span>02</span> Propuesta web <small>fondo y tarjeta interactivos</small></div>
         <div class="phone"><div id="preview-viewport" class="preview-viewport"><div id="preview" class="preview">
           <div class="wallpaper"><svg viewBox="0 0 540 1170" preserveAspectRatio="none" aria-hidden="true"><path class="wave-a" d="M-45 750 C90 702 160 785 280 749 S470 731 585 767 L585 1170 L-45 1170 Z"/><path class="wave-b" d="M-45 740 C75 810 185 737 270 747 S435 797 585 739 L585 1170 L-45 1170 Z"/></svg></div>
           <div class="cutout-guide"></div><div id="stage"></div>
         </div></div></div>
       </div>
     </div>
-    <p class="description">La propuesta web reproduce la composición de referencia, pero no ejecuta Android Canvas ni las ondas animadas de Kotlin. Las capturas originales son la referencia final para comparar espaciados, tipografía y jerarquía.</p>
+    <p class="description">Los botones de fondo y tarjeta actualizan la propuesta web. Cuando no hay una captura real de esa combinación, la columna original conserva la captura de referencia y lo indica. La propuesta es una aproximación, no el renderizador Canvas de Android.</p>
   </section>
 </main>
 <footer class="site-footer"><span>XMB Lite Player · Proyecto independiente</span><div><a href="../docs/capturas-ui/">Galería original ↗</a><a href="https://github.com/santiagoCSM/xmb-lite-player/blob/main/docs/ICONOGRAPHY.md">Iconografía ↗</a></div></footer>
