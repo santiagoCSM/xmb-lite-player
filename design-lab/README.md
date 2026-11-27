@@ -14,9 +14,9 @@ Abre http://localhost:8000/design-lab/ o el despliegue de GitHub Pages: https://
 
 ## Uso
 
-- Elige una pantalla en la navegación lateral.
+- Elige una pantalla en la navegación lateral o navega directamente desde la columna derecha mediante gestos.
 - A la izquierda verás la **captura original** tomada del Redmi 9T y guardada en `docs/capturas-ui/`.
-- A la derecha verás una **aproximación web** del mismo diseño.
+- A la derecha verás una **reconstrucción editable con HTML/CSS** del diseño: fondos mediante gradientes y capas CSS, textos y tarjetas como elementos HTML, e iconos como vectores SVG insertados en el DOM. **No usa capturas rasterizadas** en esa columna.
 - Puedes alternar **Azul/Violeta** y **Sin tarjeta/Con tarjeta** para revisar estados independientes. **No son configuraciones de diseño**. La vista de la derecha se actualiza en ambos casos; a la izquierda se muestra una captura real únicamente cuando existe una captura correspondiente a esa combinación. Si falta, se conserva la captura base como referencia, con un aviso visible que aclara que esa combinación no se fotografió. La propuesta web sí aplica los controles. En las páginas de reproducción/error la tarjeta es parte obligatoria de la pantalla y esos botones quedan deshabilitados.
 - No existen controles de posición, escala, opacidad, importación/exportación ni modificaciones desde el navegador.
 
@@ -49,3 +49,12 @@ El workflow [`Deploy XMB Design Lab`](../.github/workflows/design-lab-pages.yml)
 Ejecuta `node --test design-lab/smoke.test.cjs` para validar que la navegación funciona, que Azul/Violeta cambia el fondo de la propuesta, que Con/Sin tarjeta añade y retira la tarjeta, que las capturas de referencia permanecen visibles y que las vistas de reproducción bloquean controles incompatibles.
 
 El workflow de Pages ejecuta las pruebas antes de publicar; si fallan, el despliegue no se realiza.
+
+## Navegación por gestos (primera versión)
+
+- **Inicio:** deslizar a la izquierda/derecha recorre las categorías Música, Video y Ajustes.
+- **Pantallas internas:** deslizar **hacia la izquierda** regresa a la pantalla anterior. No hay botón «Atrás» en la esquina superior.
+- **Arriba/abajo:** cambia la fila seleccionada en la maqueta. Tocando nuevamente la opción seleccionada se abre el siguiente nivel cuando existe en el prototipo.
+- En Android se conserva el botón físico/sistema Atrás y las teclas de navegación para accesibilidad y compatibilidad; el gesto es el camino táctil principal.
+
+El laboratorio modela estados sintéticos y no reproduce sonido ni explora música real.
