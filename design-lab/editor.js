@@ -146,7 +146,8 @@ function showPlaybackCard(){
 function sourceImage(){
  const entry=CAPTURES[currentScreen];
  const state=showPlaybackCard()?"on":"off";
- const exact=entry[theme]?.[state];
+ const baseState=(currentScreen==="player"||currentScreen==="error")?"on":"off";
+ const exact=entry[theme]?.[state] || (theme==="blue" && state===baseState ? entry.base : undefined);
  return {file:exact||entry.base, exact:Boolean(exact)};
 }
 function refresh(){
