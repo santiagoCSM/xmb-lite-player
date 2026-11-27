@@ -36,7 +36,7 @@ const DEFAULTS = {
  focus:.19,rowGap:86,
  layouts:Object.fromEntries(Object.keys(SCREENS).map(key=>[key,{
   categories:{x:100,y:322,scale:1},heading:{x:135,y:300,scale:1},
-  back:{x:28,y:55,scale:1},rows:{x:83,y:key==="songs"||key==="albums"||key==="artists"?319:490,scale:1},
+  back:{x:28,y:55,scale:1},rows:{x:83,y:["songs","albums","artists","group","appearance","effects","motion","permission"].includes(key)?475:490,scale:1},
   card:{x:20,y:key==="player"||key==="error"?347:89,scale:1}
  }]))
 };
