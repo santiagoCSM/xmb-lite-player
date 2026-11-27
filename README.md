@@ -24,6 +24,16 @@ Capturas del Redmi 9T con Android 16. La reproducción usa pistas sintéticas y 
 - **Reproducción** · [Sin pista](docs/capturas-ui/reproductor-sin-pista.webp) · [Reproduciendo](docs/capturas-ui/reproduciendo.webp) · [En pausa](docs/capturas-ui/pausa.webp) · [Tarjeta en el inicio](docs/capturas-ui/tarjeta-en-inicio.webp) · [Tarjeta en la biblioteca](docs/capturas-ui/tarjeta-en-biblioteca.webp) · [Tarjeta en Ajustes](docs/capturas-ui/tarjeta-en-ajustes.webp) · [Tarjeta en pausa](docs/capturas-ui/tarjeta-en-pausa.webp) · [Animación en tres fotogramas](docs/capturas-ui/transicion-tarjeta.webp)
 - **Otros estados** · [Acceso a música](docs/capturas-ui/acceso-a-musica.webp) · [Fin de cola](docs/capturas-ui/fin-de-cola.webp) · [Archivo incompatible](docs/capturas-ui/archivo-incompatible.webp)
 
+## Laboratorio de diseño web
+
+El editor experimental en [`design-lab/`](design-lab/) permite comparar las capturas reales del Redmi 9T con una versión web editable, mover categorías, títulos, listas y reproductor, ajustar tamaños y exportar/importar posiciones en JSON. No altera Android ni Media3. Para abrirlo localmente:
+
+```bash
+python3 -m http.server 8000
+```
+
+Visita `http://localhost:8000/design-lab/`. [Instrucciones y limitaciones](design-lab/README.md).
+
 ## Iconografía
 
 El menú usa iconos vectoriales originales y un foco inspirado en la jerarquía visual de XMB. La documentación explica las referencias, la integración Android, las capturas y la licencia MIT de los iconos. [Diseño y licencia de la iconografía](docs/ICONOGRAPHY.md)
