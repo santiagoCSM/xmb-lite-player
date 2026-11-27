@@ -17,8 +17,12 @@ Abre http://localhost:8000/design-lab/ o el despliegue de GitHub Pages: https://
 - Elige una pantalla en la navegación lateral.
 - A la izquierda verás la **captura original** tomada del Redmi 9T y guardada en `docs/capturas-ui/`.
 - A la derecha verás una **aproximación web** del mismo diseño.
-- Puedes alternar únicamente el fondo azul/violeta y mostrar/ocultar la tarjeta de reproducción para revisar estados. **No son configuraciones de diseño**.
+- Puedes alternar **Azul/Violeta** y **Sin tarjeta/Con tarjeta** para revisar estados independientes. **No son configuraciones de diseño**. La vista de la derecha se actualiza en ambos casos; a la izquierda se muestra una captura real únicamente cuando existe una captura correspondiente a esa combinación. Si falta, aparece un aviso en lugar de presentar una imagen incorrecta. En las páginas de reproducción/error la tarjeta es parte obligatoria de la pantalla y esos botones quedan deshabilitados.
 - No existen controles de posición, escala, opacidad, importación/exportación ni modificaciones desde el navegador.
+
+## Primera iteración visual
+
+Se redujo discretamente el énfasis del foco, se ajustó la tipografía de las filas y se reubicaron las listas de biblioteca bajo sus títulos para evitar solapamientos en la propuesta web. Son **cambios exploratorios solo en el laboratorio**, pendientes de aprobación antes de modificar Kotlin.
 
 ## Flujo de trabajo con un LLM
 
