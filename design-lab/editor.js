@@ -1,6 +1,7 @@
 "use strict";
 // The LLM edits DEFAULTS and SCREENS in source control; visitors review, not configure.
-const W = 540, H = 1170, STORE = "xmb-design-lab-v1";
+const W = 540, H = 1170;
+const $ = id => document.getElementById(id);
 const ASSET = "../app/src/main/res/drawable/ic_xmb_";
 const ICONS = {
  music:"category_music",video:"category_video",settings:"category_settings",
@@ -111,7 +112,7 @@ function renderStage(){
    note.textContent=page.message;stage.append(note);
   }
  }
- if(playing||currentScreen==="player"||currentScreen==="error"){
+ if(showPlaybackCard()){
   const noSong=currentScreen==="error";
   const card='<div class="player-card"><div class="track">'+(noSong?"XMB-Gallery-Corrupt":"XMB QA 01")+'</div><div class="artist">'+(noSong?"Archivo inaccesible o incompatible":"XMB QA Artista")+'</div>'+
    '<div class="progress-line"><span>0:13</span><div class="rail"></div><span>2:00</span></div>'+
@@ -121,22 +122,38 @@ function renderStage(){
 }
 function escapeHTML(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
 
-function escapeHTML(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
-
+// Only show an original when the exact screen/state was captured on the Redmi.
+// Never silently substitute a capture of a different screen or background.
+const CAPTURES = {
+ music:{blue:{off:"musica-azul.webp",on:"tarjeta-en-inicio.webp"},violet:{off:"musica-violeta.webp"}},
+ video:{blue:{off:"video.webp"}},
+ settings:{blue:{off:"ajustes.webp",on:"tarjeta-en-ajustes.webp"}},
+ songs:{blue:{off:"canciones.webp"}},
+ albums:{blue:{off:"albumes.webp"}},
+ artists:{blue:{off:"artistas.webp"}},
+ group:{blue:{off:"canciones-del-album.webp",on:"tarjeta-en-biblioteca.webp"}},
+ appearance:{blue:{off:"apariencia.webp"}},
+ effects:{blue:{off:"selector-de-fondo.webp"}},
+ motion:{blue:{off:"rendimiento-ahorro.webp"}},
+ info:{blue:{off:"informacion.webp"}},
+ player:{blue:{off:"reproduciendo.webp"}},
+ permission:{blue:{off:"acceso-a-musica.webp"}},
+ error:{blue:{off:"archivo-incompatible.webp"}}
+};
+function showPlaybackCard(){return playing || currentScreen==="player" || currentScreen==="error";}
 function sourceImage(){
- const page=SCREENS[currentScreen];
- if(currentScreen==="music"&&theme==="violet"&&!playing)return "musica-violeta.webp";
- if(playing){
-  if(currentScreen==="music")return "tarjeta-en-inicio.webp";
-  if(currentScreen==="settings"||currentScreen==="appearance")return "tarjeta-en-ajustes.webp";
-  if(["songs","albums","artists","group"].includes(currentScreen))return "tarjeta-en-biblioteca.webp";
- }
- return page.photo;
+ return CAPTURES[currentScreen]?.[theme]?.[showPlaybackCard()?"on":"off"] || null;
 }
 function refresh(){
  const page=SCREENS[currentScreen];
  document.getElementById("page-name").textContent=page.label;
- document.getElementById("reference").src="../docs/capturas-ui/"+sourceImage();
+ const photo=sourceImage();
+ const reference=$("reference");
+ const empty=$("reference-empty");
+ reference.hidden=!photo;
+ empty.hidden=!!photo;
+ if(photo){reference.src="../docs/capturas-ui/"+photo;reference.alt="Captura real: "+page.label+" · "+theme+" · "+(showPlaybackCard()?"con":"sin")+" tarjeta";}
+ else{reference.removeAttribute("src");empty.textContent="Aún no hay una captura exacta de este estado en el Redmi. La propuesta web de la derecha sí permite revisarlo.";}
  renderStage();
  document.querySelectorAll("[data-screen]").forEach(el=>{
   const active=el.dataset.screen===currentScreen;
@@ -148,8 +165,11 @@ function refresh(){
   el.classList.toggle("active",active);el.setAttribute("aria-pressed",String(active));
  });
  document.querySelectorAll("[data-playing]").forEach(el=>{
-  const active=(el.dataset.playing==="on")===playing;
+  const active=(el.dataset.playing==="on")===showPlaybackCard();
   el.classList.toggle("active",active);el.setAttribute("aria-pressed",String(active));
+  const locked=currentScreen==="player"||currentScreen==="error";
+  el.disabled=locked;
+  el.title=locked?"Esta pantalla siempre presenta la tarjeta del reproductor":"";
  });
 }
 function navigation(){
