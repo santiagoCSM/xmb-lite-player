@@ -31,12 +31,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Test Design Lab interactions
+        run: |
+          node --check design-lab/editor.js
+          node --test design-lab/smoke.test.cjs
+
       - name: Stage only the lab and its visual assets
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p _site/design-lab _site/docs _site/app/src/main/res/drawable
           cp -a design-lab/. _site/design-lab/
+          rm -f _site/design-lab/smoke.test.cjs
           cp -a docs/capturas-ui _site/docs/capturas-ui
           cp docs/ICONOGRAPHY.md _site/docs/ICONOGRAPHY.md
           cp app/src/main/res/drawable/ic_xmb_*.xml _site/app/src/main/res/drawable/
