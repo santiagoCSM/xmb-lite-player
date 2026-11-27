@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>XMB Lite · Design Lab</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="editor.js" defer></script>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand"><span class="brandmark">✳</span><div><strong>XMB Lite</strong><small>Design Lab · prototipo web</small></div></div>
+    <div class="toolbar-actions">
+      <button id="undo" type="button" title="Deshacer último ajuste">↶ Deshacer</button>
+      <button id="reset" type="button">Restablecer</button>
+      <button id="export" type="button" class="primary">Exportar JSON ↓</button>
+      <button id="import" type="button">Importar JSON ↑</button><input id="file" type="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+  <main class="workspace">
+    <aside class="panel settings">
+      <div class="eyebrow">01 / CONTEXTO</div>
+      <h1>Diseña moviendo lo que ya existe.</h1>
+      <p>Las capturas del Redmi son nuestra fuente de verdad. Arrastra un bloque en la pantalla editable o cambia sus valores aquí.</p>
+      <label for="screen">Pantalla</label>
+      <select id="screen"></select>
+      <div class="two">
+        <div><label for="theme">Fondo</label><select id="theme"><option value="blue">Ondas azules</option><option value="violet">Onda violeta</option></select></div>
+        <div><label for="playing">Reproductor</label><select id="playing"><option value="off">Oculto</option><option value="on">Visible</option></select></div>
+      </div>
+      <div class="eyebrow section-title">02 / ELEMENTOS</div>
+      <div id="layers" class="layers" aria-label="Capas de la pantalla"></div>
+      <div class="eyebrow section-title">03 / POSICIÓN</div>
+      <div class="controls">
+        <label for="x">Horizontal <output id="xOut"></output></label><input id="x" type="range" min="-180" max="680" step="1">
+        <label for="y">Vertical <output id="yOut"></output></label><input id="y" type="range" min="-100" max="1250" step="1">
+        <div class="two">
+          <div><label for="scale">Escala <output id="scaleOut"></output></label><input id="scale" type="range" min=".6" max="1.6" step=".01"></div>
+          <div><label for="rowGap">Filas <output id="rowGapOut"></output></label><input id="rowGap" type="range" min="55" max="140" step="1"></div>
+        </div>
+        <label for="focus">Opacidad de selección <output id="focusOut"></output></label><input id="focus" type="range" min=".06" max=".45" step=".01">
+      </div>
+      <div class="hint"><strong>Consejo:</strong> edita en una pantalla, cambia a otra y compara. El diseño se guarda automáticamente en este navegador. Ningún cambio altera el APK.</div>
+    </aside>
+    <section class="comparison">
+      <div class="section-head"><div><span class="eyebrow">COMPARACIÓN</span><h2>Original / Propuesta</h2></div><span class="pill">Redmi 9T · 540 × 1170</span></div>
+      <div class="devices">
+        <div class="device-column"><h3>Original <span>captura real</span></h3><div class="phone"><div class="original-frame"><img id="reference" alt="Captura original del repositorio" src="../docs/capturas-ui/musica-azul.webp"></div></div></div>
+        <div class="device-column"><h3>Editable <span>arrastra cualquier bloque</span></h3><div class="phone"><div id="preview-viewport" class="preview-viewport"><div id="preview" class="preview">
+          <div class="wallpaper"><svg viewBox="0 0 540 1170" preserveAspectRatio="none" aria-hidden="true"><path class="wave-a" d="M-45 750 C90 702 160 785 280 749 S470 731 585 767 L585 1170 L-45 1170 Z"/><path class="wave-b" d="M-45 740 C75 810 185 737 270 747 S435 797 585 739 L585 1170 L-45 1170 Z"/></svg></div>
+          <div class="cutout-guide" title="Área aproximada de recorte de cámara"></div>
+          <div id="stage"></div>
+        </div></div></div></div>
+      </div>
+      <div class="footer-note">La vista web es una <strong>aproximación interactiva</strong>, no el motor Canvas de Android. Usa el original de la izquierda para ajustar composición y espaciados. Los iconos de la derecha se cargan desde los VectorDrawables del repositorio.</div>
+    </section>
+  </main>
+  <footer><span>Proyecto independiente · XMB Lite Player</span><a href="../docs/capturas-ui/">Capturas originales ↗</a><a href="../docs/ICONOGRAPHY.md">Iconografía y licencia ↗</a></footer>
+</body>
+</html>
