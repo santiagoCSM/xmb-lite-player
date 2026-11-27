@@ -36,13 +36,15 @@ const DEFAULTS = {
  focus:.19,rowGap:86,
  layouts:Object.fromEntries(Object.keys(SCREENS).map(key=>[key,{
   categories:{x:100,y:322,scale:1},heading:{x:135,y:300,scale:1},
-  back:{x:28,y:55,scale:1},rows:{x:83,y:["songs","albums","artists","group","appearance","effects","motion","permission"].includes(key)?475:490,scale:1},
+  rows:{x:83,y:["songs","albums","artists","group","appearance","effects","motion","permission"].includes(key)?475:490,scale:1},
   card:{x:20,y:key==="player"||key==="error"?347:89,scale:1}
  }]))
 };
 
 const model=structuredClone(DEFAULTS);
 let currentScreen="music",theme="blue",playing=false;
+let selectedRow=0;
+let navigationHistory=[];
 function iconSVG(key){
  const file=ICONS[key];
  if(!file)return "";
@@ -75,8 +77,8 @@ const glyph=key=>'<span class="glyph">'+iconSVG(key)+'</span>';
 function sections(){
  const entry=SCREENS[currentScreen];
  if(["music","video","settings"].includes(currentScreen))return ["categories","rows",...(playing?["card"]:[])];
- if(currentScreen==="player"||currentScreen==="error")return ["back","heading","card"];
- return ["back","heading","rows",...(playing?["card"]:[])];
+ if(currentScreen==="player"||currentScreen==="error")return ["heading","card"];
+ return ["heading","rows",...(playing?["card"]:[])];
 }
 function layerName(name){return ({categories:"Categorías",heading:"Título",back:"Atrás",rows:"Lista",card:"Reproductor"})[name];}
 
@@ -98,11 +100,10 @@ function renderStage(){
   stage.append(comp("categories",'<div class="categories">'+ROOT_CATEGORIES.map((c,i)=>
    '<div class="category '+(page.category===i?'chosen':'')+'">'+glyph(c.icon)+'<span>'+c.label+'</span></div>').join("")+"</div>"));
  } else {
-  stage.append(comp("back",'<div class="back">'+glyph("back")+'<span>Atrás</span></div>'));
   stage.append(comp("heading",'<div class="heading">'+escapeHTML(page.title)+"</div>"));
  }
  if(page.rows){
-  const rowHtml=page.rows.map(([label,ic],i)=>'<div class="screen-row '+(i===page.selected?'active':'')+'" style="height:'+model.rowGap+'px">'+
+  const rowHtml=page.rows.map(([label,ic],i)=>'<div class="screen-row '+(i===selectedRow?'active':'')+'" style="height:'+model.rowGap+'px">'+
    glyph(ic)+'<strong>'+escapeHTML(label)+'</strong>'+(page.check===i?'<span class="check">✓</span>':'')+'</div>').join("");
   stage.append(comp("rows",'<div class="rows">'+rowHtml+'</div>'));
   if(page.message){
@@ -196,10 +197,83 @@ function navigation(){
   const button=document.createElement("button");
   button.type="button";button.dataset.screen=key;
   button.textContent=item.label.replace(/^.*? · /,"");
-  button.addEventListener("click",()=>{currentScreen=key;refresh();});
+  button.addEventListener("click",()=>{navigateTo(key,false);});
   nav.append(button);
  }
 }
+
+const ROOT_SCREENS=["music","video","settings"];
+function navigateTo(key,remember=true){
+ if(!SCREENS[key]||key===currentScreen)return;
+ if(remember)navigationHistory.push(currentScreen);else navigationHistory=[];
+ currentScreen=key;selectedRow=SCREENS[key].selected??0;refresh();
+}
+function navigateBack(){
+ if(ROOT_SCREENS.includes(currentScreen))return false;
+ const parents={appearance:"settings",effects:"appearance",motion:"appearance",info:"settings",
+ songs:"music",albums:"music",artists:"music",group:"albums",player:"music",permission:"songs",error:"player"};
+ currentScreen=navigationHistory.pop()||parents[currentScreen]||"music";
+ selectedRow=SCREENS[currentScreen].selected??0;refresh();return true;
+}
+function openSelected(){
+ const targets={music:["songs","albums","artists","player"],settings:["appearance","info"],
+ appearance:["effects","motion"],albums:["group"],artists:["group"]};
+ const next=targets[currentScreen]?.[selectedRow];
+ if(next)navigateTo(next);
+}
+function rootSwipe(dir){
+ const index=ROOT_SCREENS.indexOf(currentScreen);
+ navigateTo(ROOT_SCREENS[Math.min(2,Math.max(0,index+dir))],false);
+}
+const viewport=$("preview-viewport");
+let pointerStart=null;
+viewport.style.touchAction="none";
+viewport.addEventListener("pointerdown",event=>{
+ if(event.isPrimary===false)return;
+ pointerStart={x:event.clientX,y:event.clientY};
+ viewport.setPointerCapture?.(event.pointerId);
+});
+viewport.addEventListener("pointercancel",()=>{pointerStart=null;});
+viewport.addEventListener("pointerup",event=>{
+ if(!pointerStart)return;
+ const dx=event.clientX-pointerStart.x,dy=event.clientY-pointerStart.y;
+ pointerStart=null;
+ if(Math.abs(dx)>28&&Math.abs(dx)>Math.abs(dy)*1.15){
+  if(ROOT_SCREENS.includes(currentScreen))rootSwipe(dx<0?1:-1);
+  else if(dx<0)navigateBack();
+  return;
+ }
+ if(Math.abs(dy)>28&&Math.abs(dy)>Math.abs(dx)*1.15){
+  const rows=SCREENS[currentScreen].rows;
+  if(rows?.length){
+   selectedRow=Math.max(0,Math.min(rows.length-1,selectedRow+(dy<0?1:-1)));
+   renderStage();
+  }
+  return;
+ }
+ if(Math.abs(dx)<12&&Math.abs(dy)<12){
+  const rect=viewport.getBoundingClientRect();
+  const x=(event.clientX-rect.left)/(rect.width/W),y=(event.clientY-rect.top)/(rect.width/W);
+  if(ROOT_SCREENS.includes(currentScreen)&&y<465){
+   const idx=Math.round((x-145)/115);
+   if(idx>=0&&idx<ROOT_SCREENS.length)navigateTo(ROOT_SCREENS[idx],false);
+  }else{
+   const rows=SCREENS[currentScreen].rows;
+   if(rows?.length&&y>=model.layouts[currentScreen].rows.y){
+    const index=Math.floor((y-model.layouts[currentScreen].rows.y)/model.rowGap);
+    if(index>=0&&index<rows.length){
+     if(index===selectedRow)openSelected();
+     else {selectedRow=index;renderStage();}
+    }
+   }
+  }
+ }
+});
+viewport.addEventListener("keydown",event=>{
+ if(event.key==="ArrowLeft"&&navigateBack())event.preventDefault();
+ if(event.key==="Enter"){openSelected();event.preventDefault();}
+});
+
 for(const button of document.querySelectorAll("[data-theme]"))
  button.addEventListener("click",()=>{theme=button.dataset.theme;refresh();});
 for(const button of document.querySelectorAll("[data-playing]"))
@@ -210,6 +284,7 @@ function fitPreview(){
  document.getElementById("preview").style.transform="scale("+scale+")";
 }
 navigation();
+selectedRow=SCREENS[currentScreen].selected??0;
 refresh();
 new ResizeObserver(fitPreview).observe(document.getElementById("preview-viewport"));
 fitPreview();
