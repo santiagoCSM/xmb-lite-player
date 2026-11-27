@@ -482,9 +482,6 @@ internal class XmbMenuView(
         if (page == Page.ROOT) {
             drawCategories(canvas, categoryPosition(progress))
         } else {
-            icons.draw(canvas, XmbIcon.BACK, titleX + 6f * density, headerY - 4.5f * density,
-                17f * density, 235)
-            text(canvas, "Atrás", titleX + 19f * density, headerY, 15f, accent, true)
             if (isPlayerPage()) {
                 text(canvas, title(), cardCenterX, titleY, 25f, white, true, Paint.Align.CENTER,
                     maxWidth = cardWidth)
@@ -743,7 +740,13 @@ internal class XmbMenuView(
                 val dy = event.y - downY
                 when {
                     abs(dx) > touchSlop && abs(dx) > abs(dy) -> {
-                        if (page == Page.ROOT) selectCategory(category + if (dx < 0) 1 else -1)
+                        // Root: swipe left advances categories, swipe right goes to the previous one.
+                        // Subpages: swipe left returns to the parent; swipe right is left unused.
+                        if (page == Page.ROOT) {
+                            selectCategory(category + if (dx < 0) 1 else -1)
+                        } else if (dx < 0) {
+                            goBack()
+                        }
                     }
                     abs(dy) > touchSlop -> selectRow(row() + if (dy < 0) 1 else -1)
                     else -> tap(event.x, event.y)
@@ -761,12 +764,6 @@ internal class XmbMenuView(
     private fun tap(x: Float, y: Float) {
         val now = SystemClock.uptimeMillis()
         val progress = progress(now)
-        if (page != Page.ROOT && x in cutoutLeft.toFloat()..(cutoutLeft + 100f * density) &&
-            y in cutoutTop.toFloat()..(headerY + 10f * density)
-        ) {
-            goBack()
-            return
-        }
         if (isPlayerPage() || hasCurrentTrack) {
             val top = cardTop(cardExpansion(now))
             if (x in cardLeft..cardRight && y in top..(top + cardHeight)) {
